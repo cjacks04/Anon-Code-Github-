@@ -1,0 +1,262 @@
+---
+title: "Anonymous Work Registration"
+author: "CoreyJackson"
+date: "11/16/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+
+library(ggplot2)
+library(plyr)
+library(reshape2)
+#library(lubridate)
+library(data.table)
+#library(ggthemes)
+library(readr)
+#library(ggpubr)
+#library(gtools)
+#library(wesanderson)
+library(knitr)
+library(kableExtra)
+
+```
+
+```{r,  include=FALSE, warning=FALSE}
+# import datasets 
+geordi <- read_csv("~/Dropbox/INSPIRE/Data/System dumps/geordi-1-5-17.csv") # The raw geordi dataet
+
+# remove unnecessary columns 
+geordi <- geordi[,-c(3,8,10:17,19)]
+
+#
+# First logged in
+#
+
+joindate <- ddply(geordi,"userID",summarize,
+                  firstclass = min(time))
+joindate <- joindate[which(joindate$userID!="(anonymous)"),]
+
+#
+# Identifying anonymous events
+#
+
+# Find unique IP/user combinations
+unique_combination <- unique(geordi[c("userID", "clientIP")])
+unique_combination <- unique_combination[which(unique_combination$userID != "(anonymous)"),]
+
+unique_ips <- ddply(unique_combination, c("clientIP"), summarise,
+                    userids = length(unique(userID[which(userID != '(anonymous)')]))
+                    )
+
+# get IPs only associated with one user account
+unique_ips <- unique_ips[which(unique_ips$userids == 1),]
+# get their ids 
+unique_ips <- merge(unique_ips, unique_combination, by ="clientIP",all.x = TRUE)
+
+# create anon/non anon datasets
+geordi_anonymous <- geordi[which(geordi$userID == "(anonymous)"),] # create dataset with only anonymous
+geordi_nonanonymous <- geordi[which(geordi$userID != "(anonymous)"),]
+remove(geordi)
+geordi_anonymous <- merge(geordi_anonymous,unique_ips, by="clientIP", all.x=TRUE) # puts userIDs next to events associated with one userID
+
+# rename/remove columns in both datasets
+names(geordi_anonymous)[4]<-"userID" # rename columns
+names(geordi_anonymous)[10]<-"userID_a"
+geordi_anonymous <- geordi_anonymous[,-c(9)] # remove column
+geordi_nonanonymous$userID_a <- geordi_nonanonymous$userID # adds userID to columns to make datasets the same length
+
+geordi <- rbind(geordi_anonymous,geordi_nonanonymous) #Combine anon/non anon events
+remove(geordi_anonymous,geordi_nonanonymous,unique_combination) # remove unnecessary dataframes
+
+
+# concatenate events data
+geordi$new.categories <- paste(geordi$type, geordi$relatedID, geordi$data, sep="-")
+
+# get unique events to determine activity
+# events <- unique(geordi[c("type","new.categories","breadcrumb")]) completed this step in previous analysis and manually labeled events
+events <- read_csv("~/Dropbox/INSPIRE/Papers & Presentations/Anonymous Work (Journal)/events.csv")
+# remove highlevel events not needed for analysis
+events <- events[which(!is.na(events$new.category)),]
+# merge names of events
+geordi <- merge(geordi,events, by="new.categories", all.x=TRUE)
+
+# create the original dataset
+geordi_org <- geordi
+
+# Combine tutorials events 
+geordi$new.category[geordi$new.category %in% c("tutorial - beginner 2","tutorial - beginner 1","tutorial - no training","tutorial - beginner 3","tutorial - apprentice","tutorial - master","tutorial")] <- "tutorial"
+
+# Keep only traces important
+geordi <- geordi[which(!geordi$new.category %in% c("close-field-guide","register account","login","register account","click-favorite","link-post","logout","recent-comments-sidebar","view-talk","view-discussion","reply-post","paging")),]
+# (talk-view) landing page for list of threads 
+# (view-talk) viewing boards from project page. Only boards. Not sure if they clicked
+# (view-discussion) viewing a single thread. Not sure where these views origniated. (use talk-N-view as proxy)
+
+# remove events that weren't important
+geordi <- geordi[which(!is.na(geordi$new.category)),]
+remove(unique_ips,events)
+```
+## RQ1: Exploring the dataset
+
+Descriptive stats of dataset used in this research  
+1. Geordi traces: `r length(geordi$clientIP)`  
+2. Users: `r length(joindate$userID)`  
+3. IPs `r length(unique(geordi$clientIP))`
+4. Trace type after matching:  
+    * Logged-In: `r length(geordi$userID[geordi$userID != "(anonymous)"])`   
+    * Identified:`r length(geordi$userID[geordi$userID == "(anonymous)" & !is.na(geordi$userID_a)])`  
+    * Anonymous: `r length(geordi$userID_a[is.na(geordi$userID_a)])`   
+
+```{r include=FALSE, warning=FALSE}
+# get anonymous traces we weren't able to link
+geordi_anonymous <- geordi[which(is.na(geordi$userID_a)),]
+geordi <- geordi[which(!is.na(geordi$userID_a)),]
+
+## Get events before a user's first loggedin classification
+geordi <- merge(geordi,joindate, by.y=("userID"), by.x=("userID_a"), all.x = TRUE)
+geordi$preevent <- ifelse(geordi$time < geordi$firstclass,1,0) 
+
+# User future contribution summary
+geordi_summary <- ddply(geordi, c("userID_a"), summarize, 
+                        activities = length(userID_a),
+                        anonymous = length(which(userID=="(anonymous)")),
+                        logged_in = length(which(!userID=="(anonymous)")),
+                        first_classification = min(firstclass),
+                        first_activitiy = min(time),
+                        pre_reg_activities = sum(preevent ==1),
+                        classifications_future = length(userID_a[new.category=="classify" & preevent == 0]),
+                        nonclassification_pre = length(userID_a[new.category != "classify" & preevent == 1])
+                        )
+geordi_summary$timepre <- geordi_summary$first_classification - geordi_summary$first_activitiy
+# number will be diferent from 8606 above because some users don't actually classify. They create accounts and explore the system. 
+
+# Analysis of the geordi_summary. How many users are anonymous/never anonymous etc.
+```
+
+```{r, include=FALSE, warning=FALSE}
+# The anonymous activities
+anonymous_activities <- count(geordi$new.category[which(geordi$userID=="(anonymous)")])
+colnames(anonymous_activities)[1] <- "event"
+
+anonymous_activities$event <- factor(anonymous_activities$event, levels=unique(as.character(anonymous_activities$event)) )
+anonymous_activities <- transform(anonymous_activities, event=reorder(event, -freq) ) 
+
+allanon <- ggplot(subset(anonymous_activities, event != "classify"), aes(event, freq)) + 
+  geom_bar(stat = "identity", fill="dodgerblue4") + 
+  coord_flip() + 
+  labs(x="Event Category",y="Frequency") + 
+  theme(
+    axis.text.x=element_text(size=9),
+    axis.text.y=element_text(size=9)
+  )
+```
+
+```{r}
+allanon
+```
+
+### Other Behaviors
+
+There were `r length(joindate$userID[!(joindate$userID %in% geordi_summary$userID_a)])` users who created accounts, explored the system but never executed a classification.  
+```{r include=FALSE, warning=FALSE}
+nonclassusers <- joindate$userID[!(joindate$userID %in% geordi_summary$userID_a)]
+geordi_regnonclass <-  geordi_org[which(geordi_org$userID %in% nonclassusers),]
+
+```
+
+```{r}
+
+```
+
+
+
+## RQ2: Pre-registration anonymous traces
+```{r, include=FALSE, warning=FALSE}
+# pre-reg and post-reg anon
+baregister <- geordi[which(geordi$userID=="(anonymous)"),]
+regsummary <- ddply(baregister, c("new.category","preevent"), summarise,
+                    count = length(new.category)
+)
+
+regsummary$preevent <- factor(regsummary$preevent)
+regsummary <- na.omit(regsummary)
+
+regsummary$new.category <- factor(regsummary$new.category, levels=unique(as.character(regsummary$new.category)) )
+regsummary <- transform(regsummary, new.category=reorder(new.category, -count) ) 
+
+anon_prepost <- ggplot(subset(regsummary, new.category != "classify"), aes(new.category,count, fill=preevent)) + 
+  geom_bar(stat = "identity") + scale_fill_manual(labels = c("Pre-reg.", "Post-reg."),values = c("deepskyblue4","orangered1")) + coord_flip() +
+  labs(x="Activities",y="Number of Activities") +
+  guides(fill=guide_legend(title="Type")) + 
+  scale_x_discrete(NULL, expand = waiver(), position = "bottom") 
+
+## Categories of activity
+prereg_summary <- ddply(prereg, c("new.category"), summarize,
+                         users = length(unique(userID_a)),
+                         count = length(userID_a)
+                         )
+# Pre-reg
+prereg_summary$event <- factor(prereg_summary$new.category, levels=unique(as.character(prereg_summary$new.category)) )
+prereg_summary <- transform(prereg_summary, new.category=reorder(new.category, -count) ) 
+
+# Pre-registration activities
+anon_prereg <- ggplot(subset(prereg_summary, new.category != "classify"), aes(new.category, count)) +
+  geom_bar(stat = "identity", fill="dodgerblue4") + 
+  coord_flip() + 
+  labs(x="Event Category",y="Frequency") + 
+  theme(
+    axis.text.x=element_text(size=9),
+    axis.text.y=element_text(size=9)
+  )
+
+## Individual users 
+geordi_summarypre <- geordi_summary[which(geordi_summary$pre_reg_activities !=0),]
+
+geordi_summarypre$f <- as.Date(as.character(geordi_summarypre$first_classification), format="%Y-%m-%d")
+geordi_summarypre$a <- as.Date(as.character(geordi_summarypre$first_activitiy), format="%Y-%m-%d")
+
+geordi_summarypre$diff_in_days <- as.numeric(difftime(geordi_summarypre$f ,geordi_summarypre$a , units = c("days")))
+geordi_summarypre$f <- NULL
+geordi_summarypre$a <- NULL
+
+```
+
+Here we review the pre-registration traces of volunteers who we were able to link anonymous traces to their user accounts.
+```{r}
+anon_prereg
+
+kable(prereg_summary, "html", 
+      caption = "Gravity Spy Pre-registration activities", booktabs = T) %>%
+kable_styling()
+
+```
+
+## RQ3: Post-registration anonymous traces
+```{r, include=FALSE, warning=FALSE}
+
+
+```
+
+Here we review the post-registration traces of volunteers who we were able to link anonymous traces to their user accounts.
+```{r}
+
+```
+
+```{r}
+anon_prepost
+```
+
+
+## RQ4: Participation intention
+```{r, include=FALSE, warning=FALSE}
+
+
+```
+
+```{r}
+
+```
+
+## RQ5. Participation around signing in for known volunteers
+

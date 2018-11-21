@@ -25,7 +25,7 @@ geordi <- geordi[,-c(3,8,10:17,19)]
 #
 
 joindate <- ddply(geordi,"userID",summarize,
-                  firstclass = min(time)
+                  firstclass = min(time))
 joindate <- joindate[which(joindate$userID!="(anonymous)"),]
 #
 # Identifying anonymous events
@@ -59,6 +59,7 @@ geordi_nonanonymous$userID_a <- geordi_nonanonymous$userID # adds userID to colu
 geordi <- rbind(geordi_anonymous,geordi_nonanonymous) #Combine anon/non anon events
 remove(geordi_anonymous,geordi_nonanonymous,unique_combination) # remove unnecessary dataframes
 
+
 #
 # Munging event data
 #
@@ -82,7 +83,7 @@ geordi <- merge(geordi,events, by="new.categories", all.x=TRUE)
 # get new datasets for analysis
 geordiremoved <- geordi[which(is.na(geordi$new.category)),]
 geordi <- geordi[which(!is.na(geordi$new.category)),]
-
+#remove(unique_ips,events)
 
 
 
