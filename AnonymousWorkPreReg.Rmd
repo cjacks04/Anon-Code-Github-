@@ -1,24 +1,21 @@
 ---
-title: "Anonymous Work Registration"
+title: "Anonymous Work Part II."
 author: "CoreyJackson"
 date: "11/16/2018"
 output: html_document
 ---
 
 ```{r setup, include=FALSE, warning=FALSE}
+#https://rmarkdown.rstudio.com/authoring_basics.html
 
 library(ggplot2)
 library(plyr)
 library(reshape2)
-#library(lubridate)
 library(data.table)
-#library(ggthemes)
 library(readr)
-#library(ggpubr)
-#library(gtools)
-#library(wesanderson)
 library(knitr)
 library(kableExtra)
+library(gridExtra)
 
 ```
 
@@ -29,10 +26,7 @@ geordi <- read_csv("~/Dropbox/INSPIRE/Data/System dumps/geordi-1-5-17.csv") # Th
 # remove unnecessary columns 
 geordi <- geordi[,-c(3,8,10:17,19)]
 
-#
-# First logged in
-#
-
+# First logged in as indicated by first classification with a username
 joindate <- ddply(geordi,"userID",summarize,
                   firstclass = min(time))
 joindate <- joindate[which(joindate$userID!="(anonymous)"),]
@@ -82,9 +76,11 @@ events <- events[which(!is.na(events$new.category)),]
 geordi <- merge(geordi,events, by="new.categories", all.x=TRUE)
 
 # create the original dataset
-geordi_org <- geordi
 
 # Combine tutorials events 
+geordi$new.category[geordi$type.x %in% c("classificationStart")] <- "classify"
+
+# Change experiment classificaions to classify
 geordi$new.category[geordi$new.category %in% c("tutorial - beginner 2","tutorial - beginner 1","tutorial - no training","tutorial - beginner 3","tutorial - apprentice","tutorial - master","tutorial")] <- "tutorial"
 
 # Keep only traces important
@@ -92,28 +88,31 @@ geordi <- geordi[which(!geordi$new.category %in% c("close-field-guide","register
 # (talk-view) landing page for list of threads 
 # (view-talk) viewing boards from project page. Only boards. Not sure if they clicked
 # (view-discussion) viewing a single thread. Not sure where these views origniated. (use talk-N-view as proxy)
+geordi_org <- geordi
 
 # remove events that weren't important
 geordi <- geordi[which(!is.na(geordi$new.category)),]
+
 remove(unique_ips,events)
 ```
 ## RQ1: Exploring the dataset
 
-Descriptive stats of dataset used in this research  
-1. Geordi traces: `r length(geordi$clientIP)`  
-2. Users: `r length(joindate$userID)`  
-3. IPs `r length(unique(geordi$clientIP))`
-4. Trace type after matching:  
-    * Logged-In: `r length(geordi$userID[geordi$userID != "(anonymous)"])`   
-    * Identified:`r length(geordi$userID[geordi$userID == "(anonymous)" & !is.na(geordi$userID_a)])`  
-    * Anonymous: `r length(geordi$userID_a[is.na(geordi$userID_a)])`   
+Descriptive stats of dataset used in this research:
+
+* Geordi traces: `r length(geordi$clientIP)` 
+* Users: `r length(joindate$userID)`  
+* IPs `r length(unique(geordi$clientIP))`  
+* Trace type after matching:  
+    + Logged-In: `r length(geordi$userID[geordi$userID != "(anonymous)"])`  
+    + Identified:`r length(geordi$userID[geordi$userID == "(anonymous)" & !is.na(geordi$userID_a)])`  
+    + Anonymous: `r length(geordi$userID_a[is.na(geordi$userID_a)])` 
 
 ```{r include=FALSE, warning=FALSE}
 # get anonymous traces we weren't able to link
-geordi_anonymous <- geordi[which(is.na(geordi$userID_a)),]
-geordi <- geordi[which(!is.na(geordi$userID_a)),]
+geordi_anonymous_nolink <- geordi[which(is.na(geordi$userID_a)),] #117862 no link
+geordi <- geordi[which(!is.na(geordi$userID_a)),] #1840853
 
-## Get events before a user's first loggedin classification
+## Note events before a user's first loggedin classification
 geordi <- merge(geordi,joindate, by.y=("userID"), by.x=("userID_a"), all.x = TRUE)
 geordi$preevent <- ifelse(geordi$time < geordi$firstclass,1,0) 
 
@@ -124,15 +123,20 @@ geordi_summary <- ddply(geordi, c("userID_a"), summarize,
                         logged_in = length(which(!userID=="(anonymous)")),
                         first_classification = min(firstclass),
                         first_activitiy = min(time),
-                        pre_reg_activities = sum(preevent ==1),
+                        pre_reg_anon_activities = length(which(userID=="(anonymous)" & preevent ==1)),
+                        post_reg_anon_activities = length(which(userID=="(anonymous)" & preevent ==0)),
                         classifications_future = length(userID_a[new.category=="classify" & preevent == 0]),
                         nonclassification_pre = length(userID_a[new.category != "classify" & preevent == 1])
                         )
 geordi_summary$timepre <- geordi_summary$first_classification - geordi_summary$first_activitiy
 # number will be diferent from 8606 above because some users don't actually classify. They create accounts and explore the system. 
 
-# Analysis of the geordi_summary. How many users are anonymous/never anonymous etc.
+# Analysis of the geordi_summary. How many users are anonymous/never anonymous etc. Have Akshay explore this for RQ1
 ```
+
+### Analysis: Anonymous events that we were able to link to a user account
+
+All anonymous events for which we were able to link to a user account. There is another dataset that has 117862 events that we weren't able to link to users.
 
 ```{r, include=FALSE, warning=FALSE}
 # The anonymous activities
@@ -153,34 +157,55 @@ allanon <- ggplot(subset(anonymous_activities, event != "classify"), aes(event, 
 ```
 
 ```{r}
-allanon
+allanon # All anonymous events...not classifications
 ```
 
-### Other Behaviors
+### Analysis: Anonymous events that we were not able to link to a user account
+
+There are 117,862 events that we weren't able to link to users.
+```{r}
+#geordi_anonymous_nolink 
+
+```
+
+## Other Behaviors
+
+### Analysis: Users who never classified, but explored the system. What events did they execute? 
 
 There were `r length(joindate$userID[!(joindate$userID %in% geordi_summary$userID_a)])` users who created accounts, explored the system but never executed a classification.  
 ```{r include=FALSE, warning=FALSE}
-nonclassusers <- joindate$userID[!(joindate$userID %in% geordi_summary$userID_a)]
+nonclassusers <- joindate$userID[!(joindate$userID %in% geordi_summary$userID_a)] #304 not classifying...registered and explored
 geordi_regnonclass <-  geordi_org[which(geordi_org$userID %in% nonclassusers),]
+remove(nonclassusers)
+
+#Use geordi_regnonclass to explore non-classifying volunteers. 
 
 ```
 
-```{r}
+### Summary of RQ1 results
+Write main takeaways for RQ1
 
-```
+* unordered list
+    + sub-item 1 
+    + sub-item 2 
+        - sub-sub-item 1  
+
+*****  
 
 
-
-## RQ2: Pre-registration anonymous traces
+### Overview of pre and post registration anonymous events
 ```{r, include=FALSE, warning=FALSE}
 # pre-reg and post-reg anon
 baregister <- geordi[which(geordi$userID=="(anonymous)"),]
 regsummary <- ddply(baregister, c("new.category","preevent"), summarise,
                     count = length(new.category)
 )
+regsummary.cast <- dcast(regsummary, new.category~preevent)
+colnames(regsummary.cast)[2] <- "Postreg"
+colnames(regsummary.cast)[3] <- "Prereg"
 
 regsummary$preevent <- factor(regsummary$preevent)
-regsummary <- na.omit(regsummary)
+#regsummary <- na.omit(regsummary)
 
 regsummary$new.category <- factor(regsummary$new.category, levels=unique(as.character(regsummary$new.category)) )
 regsummary <- transform(regsummary, new.category=reorder(new.category, -count) ) 
@@ -192,11 +217,37 @@ anon_prepost <- ggplot(subset(regsummary, new.category != "classify"), aes(new.c
   scale_x_discrete(NULL, expand = waiver(), position = "bottom") 
 
 ## Categories of activity
-prereg_summary <- ddply(prereg, c("new.category"), summarize,
+prepostreg_summary <- ddply(baregister, c("new.category","preevent"), summarize,
                          users = length(unique(userID_a)),
                          count = length(userID_a)
                          )
-# Pre-reg
+prepostreg_summary$preevent[prepostreg_summary$preevent==0] <- "Post-reg"
+prepostreg_summary$preevent[prepostreg_summary$preevent==1] <- "Pre-reg"
+
+geordi_summarypre <- geordi_summary[which(geordi_summary$pre_reg_anon_activities !=0),]
+### use geordi_summarypre (summarized) and baregister (each record) to analyze anonymous events pre-registration Code to get records is userID=="(anonymous)" & preevent ==1
+pre_events <- baregister[which(baregister$userID=="(anonymous)" & baregister$preevent ==1),]
+preuser_allevents <- geordi[which(geordi$userID_a %in% geordi_summarypre$userID_a),]
+
+geordi_summarypost <- geordi_summary[which(geordi_summary$post_reg_anon_activities !=0),]
+### use geordi_summarypost (summarized) and baregister (with prev) (each record) to analyze anonymous events pre-registration. Code to get is userID=="(anonymous)" & preevent ==0
+post_events <- baregister[which(baregister$userID=="(anonymous)" & baregister$preevent ==0),]
+postuser_allevents <- geordi[which(geordi$userID_a %in% geordi_summarypost$userID_a),]
+
+
+```
+
+```{r}
+anon_prepost
+
+kable(prepostreg_summary, "html", 
+      caption = "Pre and Post registration anonymous activities", booktabs = T) %>%
+kable_styling()
+```
+
+## RQ2: Pre-registration anonymous traces
+```{r include=FALSE, warning=FALSE}
+# order pre-reg events for visualization
 prereg_summary$event <- factor(prereg_summary$new.category, levels=unique(as.character(prereg_summary$new.category)) )
 prereg_summary <- transform(prereg_summary, new.category=reorder(new.category, -count) ) 
 
@@ -210,8 +261,7 @@ anon_prereg <- ggplot(subset(prereg_summary, new.category != "classify"), aes(ne
     axis.text.y=element_text(size=9)
   )
 
-## Individual users 
-geordi_summarypre <- geordi_summary[which(geordi_summary$pre_reg_activities !=0),]
+## get pre and post anonymous users
 
 geordi_summarypre$f <- as.Date(as.character(geordi_summarypre$first_classification), format="%Y-%m-%d")
 geordi_summarypre$a <- as.Date(as.character(geordi_summarypre$first_activitiy), format="%Y-%m-%d")
@@ -220,11 +270,15 @@ geordi_summarypre$diff_in_days <- as.numeric(difftime(geordi_summarypre$f ,geord
 geordi_summarypre$f <- NULL
 geordi_summarypre$a <- NULL
 
+### use geordi_summarypre (summarized) and baregister (each record) to analyze anonymous events pre-registration Code to get records is userID=="(anonymous)" & preevent ==1
+
+
+
 ```
 
-Here we review the pre-registration traces of volunteers who we were able to link anonymous traces to their user accounts.
+Here we review the pre-registration traces of volunteers who we were able to link anonymous traces to their user accounts. There are `r length(geordi_summarypre$userID_a)` volunteers who contributed anonymously before registering for an account. On average there were `r round(mean(geordi_summarypre$pre_reg_anon_activities), digits = 2)`  and a standard deviation of `r round(sd(geordi_summarypre$pre_reg_anon_activities), digits = 2)` events, including classifying. Removing classifying events there were on average `r round(mean(geordi_summarypre$nonclassification_pre), digits = 2)` and a standard deviation of `r round(sd(geordi_summarypre$nonclassification_pre), digits = 2)` events. 
 ```{r}
-anon_prereg
+grid.arrange(anon_prereg, anon_prereg, ncol = 2)
 
 kable(prereg_summary, "html", 
       caption = "Gravity Spy Pre-registration activities", booktabs = T) %>%
@@ -232,9 +286,11 @@ kable_styling()
 
 ```
 
+***** 
+
 ## RQ3: Post-registration anonymous traces
 ```{r, include=FALSE, warning=FALSE}
-
+### use geordi_summarypost (summarized) and baregister (with prev) (each record) to analyze anonymous events pre-registration. Code to get is userID=="(anonymous)" & preevent ==0
 
 ```
 
@@ -247,6 +303,7 @@ Here we review the post-registration traces of volunteers who we were able to li
 anon_prepost
 ```
 
+*****
 
 ## RQ4: Participation intention
 ```{r, include=FALSE, warning=FALSE}
@@ -257,6 +314,8 @@ anon_prepost
 ```{r}
 
 ```
+
+*****
 
 ## RQ5. Participation around signing in for known volunteers
 
