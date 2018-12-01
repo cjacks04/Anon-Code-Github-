@@ -110,11 +110,13 @@ Descriptive stats of dataset used in this research:
 ```{r include=FALSE, warning=FALSE}
 # get anonymous traces we weren't able to link
 geordi_anonymous_nolink <- geordi[which(is.na(geordi$userID_a)),] #117862 no link
+
+### USE THIS DATASET FOR REPORTING RESULTS
 geordi <- geordi[which(!is.na(geordi$userID_a)),] #1840853
 
 ## Note events before a user's first loggedin classification
 geordi <- merge(geordi,joindate, by.y=("userID"), by.x=("userID_a"), all.x = TRUE)
-geordi$preevent <- ifelse(geordi$time < geordi$firstclass,1,0) 
+geordi$preevent <- ifelse(geordi$time < geordi$firstclass,1,0) #1 if the record is before registering
 
 # User future contribution summary
 geordi_summary <- ddply(geordi, c("userID_a"), summarize, 
