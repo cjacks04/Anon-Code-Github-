@@ -134,7 +134,7 @@ anonymous_activities <- transform(anonymous_activities, event=reorder(event, -fr
 allanon <- ggplot(subset(anonymous_activities, event != "classify"), aes(event, freq)) + 
   geom_bar(stat = "identity", fill="dodgerblue4") + 
   coord_flip() + 
-  labs(x="Event Category",y="Frequency", title="Anon events not linked") + 
+  labs(x="Event Category",y="Frequency", title="Anon events linked and not linked") + 
   theme(
     axis.text.x=element_text(size=9),
     axis.text.y=element_text(size=9)
@@ -272,9 +272,15 @@ kable(prepostreg_summary, "html",
 kable_styling()
 ```
 
+```{r include=FALSE, warning=FALSE}
+#remove(anonymous_activities,anon_prepost)
+```
+
 ## RQ2: Pre-registration anonymous traces
 ```{r include=FALSE, warning=FALSE}
 # order pre-reg events for visualization
+prereg_summary <- prepostreg_summary[which(prepostreg_summary$preevent == "Pre-reg"), ] 
+
 prereg_summary$event <- factor(prereg_summary$new.category, levels=unique(as.character(prereg_summary$new.category)) )
 prereg_summary <- transform(prereg_summary, new.category=reorder(new.category, -count) ) 
 
@@ -289,7 +295,6 @@ anon_prereg <- ggplot(subset(prereg_summary, new.category != "classify"), aes(ne
   )
 
 ## get pre and post anonymous users
-
 geordi_summarypre$f <- as.Date(as.character(geordi_summarypre$first_classification), format="%Y-%m-%d")
 geordi_summarypre$a <- as.Date(as.character(geordi_summarypre$first_activitiy), format="%Y-%m-%d")
 
@@ -297,37 +302,87 @@ geordi_summarypre$diff_in_days <- as.numeric(difftime(geordi_summarypre$f ,geord
 geordi_summarypre$f <- NULL
 geordi_summarypre$a <- NULL
 
-### use geordi_summarypre (summarized) and baregister (each record) to analyze anonymous events pre-registration Code to get records is userID=="(anonymous)" & preevent ==1
+### use geordi_summarypre (summarized), pre_events (each pre-reg. record), and preuser_allevents(all events for users who contribute pre-anonymous events)
 
-
+# When users do contribute anonymously what does this behaviour mean for their future participation
+# Time spent in pre-registration. 
+# Diversity of pre-registration activities
+# relationship between pre-registration and future contribution intention. Look at classification only, all, non-classifications
+# Are there differences in volunteers who contribute anonymously compared to those who dont?
 
 ```
 
-Here we review the pre-registration traces of volunteers who we were able to link anonymous traces to their user accounts. There are `r length(geordi_summarypre$userID_a)` volunteers who contributed anonymously before registering for an account. On average there were `r round(mean(geordi_summarypre$pre_reg_anon_activities), digits = 2)`  and a standard deviation of `r round(sd(geordi_summarypre$pre_reg_anon_activities), digits = 2)` events, including classifying. Removing classifying events there were on average `r round(mean(geordi_summarypre$nonclassification_pre), digits = 2)` and a standard deviation of `r round(sd(geordi_summarypre$nonclassification_pre), digits = 2)` events. 
 ```{r}
 grid.arrange(anon_prereg, anon_prereg, ncol = 2)
 
 kable(prereg_summary, "html", 
       caption = "Gravity Spy Pre-registration activities", booktabs = T) %>%
 kable_styling()
+```
 
+### Summary of RQ2 results
+Here we review the pre-registration traces of volunteers who we were able to link anonymous traces to their user accounts. There are `r length(geordi_summarypre$userID_a)` volunteers who contributed anonymously before registering for an account. On average there were `r round(mean(geordi_summarypre$pre_reg_anon_activities), digits = 2)`  and a standard deviation of `r round(sd(geordi_summarypre$pre_reg_anon_activities), digits = 2)` events, including classifying. Removing classifying events there were on average `r round(mean(geordi_summarypre$nonclassification_pre), digits = 2)` and a standard deviation of `r round(sd(geordi_summarypre$nonclassification_pre), digits = 2)` events. 
+
+* unordered list
+    + sub-item 1 
+    + sub-item 2 
+        - sub-sub-item 1 
+
+```{r include=FALSE, warning=FALSE}
+#remove(anon_prereg,prereg_summary)
 ```
 
 ***** 
 
 ## RQ3: Post-registration anonymous traces
 ```{r, include=FALSE, warning=FALSE}
-### use geordi_summarypost (summarized) and baregister (with prev) (each record) to analyze anonymous events pre-registration. Code to get is userID=="(anonymous)" & preevent ==0
+# order pre-reg events for visualization
+postreg_summary <- prepostreg_summary[which(prepostreg_summary$preevent == "Post-reg"), ] 
+postreg_summary$event <- factor(postreg_summary$new.category, levels=unique(as.character(postreg_summary$new.category)) )
+postreg_summary <- transform(postreg_summary, new.category=reorder(new.category, -count) ) 
+
+# Post-registration activities
+anon_postreg <- ggplot(subset(postreg_summary, new.category != "classify"), aes(new.category, count)) +
+  geom_bar(stat = "identity", fill="dodgerblue4") + 
+  coord_flip() + 
+  labs(x="Event Category",y="Frequency") + 
+  theme(
+    axis.text.x=element_text(size=9),
+    axis.text.y=element_text(size=9)
+  )
+
+geordi_summarypost$f <- as.Date(as.character(geordi_summarypost$first_classification), format="%Y-%m-%d")
+geordi_summarypost$a <- as.Date(as.character(geordi_summarypost$first_activitiy), format="%Y-%m-%d")
+
+geordi_summarypost$diff_in_days <- as.numeric(difftime(geordi_summarypost$f ,geordi_summarypost$a , units = c("days")))
+geordi_summarypost$f <- NULL
+geordi_summarypost$a <- NULL
+
+### use geordi_summarypost (summarized) post_events (each post-reg. record), and postuser_allevents(all events for users who contribute post-anonymous events)
+
+# Essentially are there behavioral differnces
+
 
 ```
 
+```{r}
+grid.arrange(anon_postreg, anon_postreg, ncol = 2)
+
+kable(postreg_summary, "html", 
+      caption = "Gravity Spy Pre-registration activities", booktabs = T) %>%
+kable_styling()
+```
+
+### Summary of RQ3 results
 Here we review the post-registration traces of volunteers who we were able to link anonymous traces to their user accounts.
-```{r}
 
-```
+* unordered list
+    + sub-item 1 
+    + sub-item 2 
+        - sub-sub-item 1 
 
-```{r}
-anon_prepost
+```{r include=FALSE, warning=FALSE}
+#remove(anon_postreg,postreg_summary)
 ```
 
 *****
@@ -342,7 +397,32 @@ anon_prepost
 
 ```
 
+### Summary of RQ4 results
+
+* unordered list
+    + sub-item 1 
+    + sub-item 2 
+        - sub-sub-item 1  
+        
+        
+
 *****
 
 ## RQ5. Participation around signing in for known volunteers
+```{r, include=FALSE, warning=FALSE}
+
+```
+
+```{r}
+
+```
+
+
+### Summary of RQ5 results
+
+* unordered list
+    + sub-item 1 
+    + sub-item 2 
+        - sub-sub-item 1  
+        
 
