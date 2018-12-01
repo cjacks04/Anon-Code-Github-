@@ -1,6 +1,6 @@
 ---
 title: "Anonymous Work Part II."
-author: "CoreyJackson","Akshay Bagde"
+author: "CoreyJackson"
 date: "11/16/2018"
 output: html_document
 ---
