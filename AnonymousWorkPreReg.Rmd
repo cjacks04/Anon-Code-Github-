@@ -54,6 +54,8 @@ geordi_nonanonymous <- geordi[which(geordi$userID != "(anonymous)"),]
 remove(geordi)
 geordi_anonymous <- merge(geordi_anonymous,unique_ips, by="clientIP", all.x=TRUE) # puts userIDs next to events associated with one userID
 
+
+
 # rename/remove columns in both datasets
 names(geordi_anonymous)[4]<-"userID" # rename columns
 names(geordi_anonymous)[10]<-"userID_a"
@@ -95,9 +97,16 @@ geordi <- geordi[which(!is.na(geordi$new.category)),]
 
 remove(unique_ips,events)
 ```
+
+
+```{r}
+# Add sesssion variable to dataframe
+```
+
+
 ## RQ1: Exploring the dataset
 
-Descriptive stats of dataset used in this research:
+### Analysis: All anonymous events that we were able to link to a user account
 
 * Geordi traces: `r length(geordi$clientIP)` 
 * Users: `r length(joindate$userID)`  
@@ -108,12 +117,39 @@ Descriptive stats of dataset used in this research:
     + Anonymous: `r length(geordi$userID_a[is.na(geordi$userID_a)])` 
 
 ```{r include=FALSE, warning=FALSE}
-# get anonymous traces we weren't able to link
-geordi_anonymous_nolink <- geordi[which(is.na(geordi$userID_a)),] #117862 no link
+# All anonymous (linked and not linked)
+geordi_all_anon <- geordi
+# Anonymous traces we weren't able to link
+geordi_anonymous_nolink <- geordi[which(is.na(geordi$userID_a)),] #117877 no link
+# Anonymous traces we were able to link
+geordi <- geordi[which(!is.na(geordi$userID_a)),] #2017383
 
-### USE THIS DATASET FOR REPORTING RESULTS
-geordi <- geordi[which(!is.na(geordi$userID_a)),] #1840853
 
+anonymous_activities <- count(geordi_all_anon$new.category[which(geordi_all_anon$userID=="(anonymous)")])
+colnames(anonymous_activities)[1] <- "event"
+
+anonymous_activities$event <- factor(anonymous_activities$event, levels=unique(as.character(anonymous_activities$event)) )
+anonymous_activities <- transform(anonymous_activities, event=reorder(event, -freq) )
+
+allanon <- ggplot(subset(anonymous_activities, event != "classify"), aes(event, freq)) + 
+  geom_bar(stat = "identity", fill="dodgerblue4") + 
+  coord_flip() + 
+  labs(x="Event Category",y="Frequency", title="Anon events not linked") + 
+  theme(
+    axis.text.x=element_text(size=9),
+    axis.text.y=element_text(size=9)
+  )
+```
+
+```{r}
+# report results from all anonymnous events
+allanon
+```
+
+### Analysis: Anonymous events that we were able to link to a user account
+
+```{r include=FALSE, warning=FALSE}
+# Linked reporting using geordi
 ## Note events before a user's first loggedin classification
 geordi <- merge(geordi,joindate, by.y=("userID"), by.x=("userID_a"), all.x = TRUE)
 geordi$preevent <- ifelse(geordi$time < geordi$firstclass,1,0) #1 if the record is before registering
@@ -136,37 +172,23 @@ geordi_summary$timepre <- geordi_summary$first_classification - geordi_summary$f
 # Analysis of the geordi_summary. How many users are anonymous/never anonymous etc. Have Akshay explore this for RQ1
 ```
 
-### Analysis: Anonymous events that we were able to link to a user account
+```{r}
+# Report out results from geordi analysis here
+```
 
-All anonymous events for which we were able to link to a user account. There is another dataset that has 117862 events that we weren't able to link to users.
+### Analysis: Anonymous events that we were not to link to a user account
+
+All anonymous events for which we were able to link to a user account. There is another dataset that has `r length(geordi_anonymous_nolink$userID)` events that we weren't able to link to users.
 
 ```{r, include=FALSE, warning=FALSE}
-# The anonymous activities
-anonymous_activities <- count(geordi$new.category[which(geordi$userID=="(anonymous)")])
-colnames(anonymous_activities)[1] <- "event"
+# The anonymous activities use (geordi_anonymous_nolink) to do analysis on individual traces
 
-anonymous_activities$event <- factor(anonymous_activities$event, levels=unique(as.character(anonymous_activities$event)) )
-anonymous_activities <- transform(anonymous_activities, event=reorder(event, -freq) ) 
 
-allanon <- ggplot(subset(anonymous_activities, event != "classify"), aes(event, freq)) + 
-  geom_bar(stat = "identity", fill="dodgerblue4") + 
-  coord_flip() + 
-  labs(x="Event Category",y="Frequency") + 
-  theme(
-    axis.text.x=element_text(size=9),
-    axis.text.y=element_text(size=9)
-  )
 ```
 
 ```{r}
-allanon # All anonymous events...not classifications
-```
+# Report out results from geordi_anonymous_nolink analysis here
 
-### Analysis: Anonymous events that we were not able to link to a user account
-
-There are 117,862 events that we weren't able to link to users.
-```{r}
-#geordi_anonymous_nolink 
 
 ```
 
@@ -175,12 +197,18 @@ There are 117,862 events that we weren't able to link to users.
 ### Analysis: Users who never classified, but explored the system. What events did they execute? 
 
 There were `r length(joindate$userID[!(joindate$userID %in% geordi_summary$userID_a)])` users who created accounts, explored the system but never executed a classification.  
+
 ```{r include=FALSE, warning=FALSE}
 nonclassusers <- joindate$userID[!(joindate$userID %in% geordi_summary$userID_a)] #304 not classifying...registered and explored
 geordi_regnonclass <-  geordi_org[which(geordi_org$userID %in% nonclassusers),]
 remove(nonclassusers)
 
 #Use geordi_regnonclass to explore non-classifying volunteers. 
+
+```
+
+### Analysis: Sessions with full anonyomity 
+```{r}
 
 ```
 
@@ -194,8 +222,7 @@ Write main takeaways for RQ1
 
 *****  
 
-
-### Overview of pre and post registration anonymous events
+## Overview of pre and post registration anonymous events
 ```{r, include=FALSE, warning=FALSE}
 # pre-reg and post-reg anon
 baregister <- geordi[which(geordi$userID=="(anonymous)"),]
@@ -235,8 +262,6 @@ geordi_summarypost <- geordi_summary[which(geordi_summary$post_reg_anon_activiti
 ### use geordi_summarypost (summarized) and baregister (with prev) (each record) to analyze anonymous events pre-registration. Code to get is userID=="(anonymous)" & preevent ==0
 post_events <- baregister[which(baregister$userID=="(anonymous)" & baregister$preevent ==0),]
 postuser_allevents <- geordi[which(geordi$userID_a %in% geordi_summarypost$userID_a),]
-
-
 ```
 
 ```{r}
