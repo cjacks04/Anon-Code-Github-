@@ -1,6 +1,6 @@
 ---
 title: "Anonymous Work Part II."
-author: "CoreyJackson","Akshay Bagde"
+author: "CoreyJackson" , "Akshay Bagde"
 date: "11/16/2018"
 output: html_document
 ---
@@ -106,7 +106,7 @@ remove(unique_ips,events)
 
 ## RQ1: Exploring the dataset
 
-### Analysis: All anonymous events that we were able to link to a user account
+### Analysis: All anonymous events that we were and weren'table to link to a user account
 
 * Geordi traces: `r length(geordi$clientIP)` 
 * Users: `r length(joindate$userID)`  
@@ -124,7 +124,6 @@ geordi_anonymous_nolink <- geordi[which(is.na(geordi$userID_a)),] #117877 no lin
 # Anonymous traces we were able to link
 geordi <- geordi[which(!is.na(geordi$userID_a)),] #2017383
 
-
 anonymous_activities <- count(geordi_all_anon$new.category[which(geordi_all_anon$userID=="(anonymous)")])
 colnames(anonymous_activities)[1] <- "event"
 
@@ -134,7 +133,7 @@ anonymous_activities <- transform(anonymous_activities, event=reorder(event, -fr
 allanon <- ggplot(subset(anonymous_activities, event != "classify"), aes(event, freq)) + 
   geom_bar(stat = "identity", fill="dodgerblue4") + 
   coord_flip() + 
-  labs(x="Event Category",y="Frequency", title="Anon events not linked") + 
+  labs(x="Event Category",y="Frequency", title="All Anonymous Events (Linked/Not Linked)") + 
   theme(
     axis.text.x=element_text(size=9),
     axis.text.y=element_text(size=9)
