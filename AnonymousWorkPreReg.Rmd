@@ -249,7 +249,9 @@ anon_prepost <- ggplot(subset(regsummary, new.category != "classify"), aes(new.c
 prepostreg_summary <- ddply(baregister, c("new.category","preevent"), summarize,
                          users = length(unique(userID_a)),
                          count = length(userID_a)
-                         )
+)
+  
+
 prepostreg_summary$preevent[prepostreg_summary$preevent==0] <- "Post-reg"
 prepostreg_summary$preevent[prepostreg_summary$preevent==1] <- "Pre-reg"
 
@@ -303,14 +305,8 @@ geordi_summarypre$f <- NULL
 geordi_summarypre$a <- NULL
 
 ### use geordi_summarypre (summarized), pre_events (each pre-reg. record), and preuser_allevents(all events for users who contribute pre-anonymous events)
-
-# When users do contribute anonymously what does this behaviour mean for their future participation
-# Time spent in pre-registration. 
-# Diversity of pre-registration activities
-# relationship between pre-registration and future contribution intention. Look at classification only, all, non-classifications
-# Are there differences in volunteers who contribute anonymously compared to those who dont?
-
 ```
+
 
 ```{r}
 grid.arrange(anon_prereg, anon_prereg, ncol = 2)
@@ -320,16 +316,37 @@ kable(prereg_summary, "html",
 kable_styling()
 ```
 
-### Summary of RQ2 results
-Here we review the pre-registration traces of volunteers who we were able to link anonymous traces to their user accounts. There are `r length(geordi_summarypre$userID_a)` volunteers who contributed anonymously before registering for an account. On average there were `r round(mean(geordi_summarypre$pre_reg_anon_activities), digits = 2)`  and a standard deviation of `r round(sd(geordi_summarypre$pre_reg_anon_activities), digits = 2)` events, including classifying. Removing classifying events there were on average `r round(mean(geordi_summarypre$nonclassification_pre), digits = 2)` and a standard deviation of `r round(sd(geordi_summarypre$nonclassification_pre), digits = 2)` events. 
+### RQ 2 findings
 
-* unordered list
-    + sub-item 1 
-    + sub-item 2 
-        - sub-sub-item 1 
+* __Pre-registration traces__: There are `r length(geordi_summarypre$userID_a)` volunteers who contributed anonymously before registering for an account. On average there were `r round(mean(geordi_summarypre$pre_reg_anon_activities), digits = 2)`  and a standard deviation of `r round(sd(geordi_summarypre$pre_reg_anon_activities), digits = 2)` events, including classifying. Removing classifying events there were on average `r round(mean(geordi_summarypre$nonclassification_pre), digits = 2)` and a standard deviation of `r round(sd(geordi_summarypre$nonclassification_pre), digits = 2)` events. 
 
 ```{r include=FALSE, warning=FALSE}
-#remove(anon_prereg,prereg_summary)
+
+```
+* __Time to register when contributing anonymously__: There are `r length(which(geordi_summarypre$diff_in_days == 0))` (91%) volunteers who registered on the first day they joined the project, `r length(which(geordi_summarypre$diff_in_days > 0))` registered after this time with `r length(which(geordi_summarypre$diff_in_days == 1))` during the next day. 
+
+```{r}
+
+```
+
+
+```{r include=FALSE, warning=FALSE}
+pre_events_summary <- ddply(pre_events, c("userID_a"), summarize,
+                            events = length(userID_a),
+                            cat_types = length(unique(new.category))
+)
+geordi_summarypre <- merge(geordi_summarypre,pre_events_summary, by = "userID_a", all.x = TRUE)
+remove(pre_events_summary)
+
+geordi_summarypre.cast <- dcast(pre_events, userID_a~new.category)
+
+
+```
+* __Diversity of pre-registration activities__: 
+
+```{r}
+cor.test(geordi_summarypre$events, geordi_summarypre$cat_types)
+
 ```
 
 ***** 
@@ -377,9 +394,6 @@ kable_styling()
 Here we review the post-registration traces of volunteers who we were able to link anonymous traces to their user accounts.
 
 * unordered list
-    + sub-item 1 
-    + sub-item 2 
-        - sub-sub-item 1 
 
 ```{r include=FALSE, warning=FALSE}
 #remove(anon_postreg,postreg_summary)
@@ -389,7 +403,15 @@ Here we review the post-registration traces of volunteers who we were able to li
 
 ## RQ4: Participation intention
 ```{r, include=FALSE, warning=FALSE}
+# Use dataset with session information.
+geordi2 <- read_csv("~/Dropbox/INSPIRE/Papers & Presentations/Anonymous Work (Journal)/Data/Session/geordi-session-added.csv")
+geordi2$Classifications <- NULL
+# relationship between pre-registration and future contribution intention. Look at classification only, all, non-classifications
 
+
+
+# Are there differences in volunteers who contribute anonymously compared to those who dont?
+# When users do contribute anonymously what does this behaviour mean for their future participation
 
 ```
 
