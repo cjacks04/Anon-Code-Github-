@@ -16,6 +16,7 @@ library(readr)
 library(knitr)
 library(kableExtra)
 library(gridExtra)
+library(corrplot)
 
 ```
 
@@ -53,8 +54,6 @@ geordi_anonymous <- geordi[which(geordi$userID == "(anonymous)"),] # create data
 geordi_nonanonymous <- geordi[which(geordi$userID != "(anonymous)"),]
 remove(geordi)
 geordi_anonymous <- merge(geordi_anonymous,unique_ips, by="clientIP", all.x=TRUE) # puts userIDs next to events associated with one userID
-
-
 
 # rename/remove columns in both datasets
 names(geordi_anonymous)[4]<-"userID" # rename columns
@@ -103,7 +102,6 @@ remove(unique_ips,events)
 # Add sesssion variable to dataframe
 ```
 
-
 ## RQ1: Exploring the dataset
 
 ### Analysis: All anonymous events that we were able to link to a user account
@@ -123,7 +121,6 @@ geordi_all_anon <- geordi
 geordi_anonymous_nolink <- geordi[which(is.na(geordi$userID_a)),] #117877 no link
 # Anonymous traces we were able to link
 geordi <- geordi[which(!is.na(geordi$userID_a)),] #2017383
-
 
 anonymous_activities <- count(geordi_all_anon$new.category[which(geordi_all_anon$userID=="(anonymous)")])
 colnames(anonymous_activities)[1] <- "event"
@@ -149,7 +146,8 @@ allanon
 ### Analysis: Anonymous events that we were able to link to a user account
 
 ```{r include=FALSE, warning=FALSE}
-# Linked reporting using geordi
+# Linked reporting using geordi dataset generated above
+
 ## Note events before a user's first loggedin classification
 geordi <- merge(geordi,joindate, by.y=("userID"), by.x=("userID_a"), all.x = TRUE)
 geordi$preevent <- ifelse(geordi$time < geordi$firstclass,1,0) #1 if the record is before registering
@@ -192,9 +190,10 @@ All anonymous events for which we were able to link to a user account. There is 
 
 ```
 
-## Other Behaviors
 
-### Analysis: Users who never classified, but explored the system. What events did they execute? 
+### Other Behaviors
+
+#### Analysis: Users who never classified, but explored the system. What events did they execute? 
 
 There were `r length(joindate$userID[!(joindate$userID %in% geordi_summary$userID_a)])` users who created accounts, explored the system but never executed a classification.  
 
@@ -207,7 +206,7 @@ remove(nonclassusers)
 
 ```
 
-### Analysis: Sessions with full anonyomity 
+#### Analysis: Sessions with full anonyomity 
 ```{r}
 
 ```
@@ -278,6 +277,7 @@ kable_styling()
 #remove(anonymous_activities,anon_prepost)
 ```
 
+
 ## RQ2: Pre-registration anonymous traces
 ```{r include=FALSE, warning=FALSE}
 # order pre-reg events for visualization
@@ -309,7 +309,9 @@ geordi_summarypre$a <- NULL
 
 
 ```{r}
-grid.arrange(anon_prereg, anon_prereg, ncol = 2)
+#grid.arrange(anon_prereg, anon_prereg, ncol = 2)
+
+anon_prereg
 
 kable(prereg_summary, "html", 
       caption = "Gravity Spy Pre-registration activities", booktabs = T) %>%
@@ -333,7 +335,7 @@ kable_styling()
 ```{r include=FALSE, warning=FALSE}
 pre_events_summary <- ddply(pre_events, c("userID_a"), summarize,
                             events = length(userID_a),
-                            cat_types = length(unique(new.category))
+                            cat_types_count = length(unique(new.category))
 )
 geordi_summarypre <- merge(geordi_summarypre,pre_events_summary, by = "userID_a", all.x = TRUE)
 remove(pre_events_summary)
@@ -405,17 +407,121 @@ Here we review the post-registration traces of volunteers who we were able to li
 ```{r, include=FALSE, warning=FALSE}
 # Use dataset with session information.
 geordi2 <- read_csv("~/Dropbox/INSPIRE/Papers & Presentations/Anonymous Work (Journal)/Data/Session/geordi-session-added.csv")
-geordi2$Classifications <- NULL
+colnames(geordi2)[22] <- "Sequence"
+geordi2[c(1,2,4,6,9,11:14,18:20)] <- NULL
+
 # relationship between pre-registration and future contribution intention. Look at classification only, all, non-classifications
 
+### NEED TO ADD OTHER TRACES EVEN THOUGH NOT IN PRE-REG.
+geordi2_summary <- ddply(geordi2, c("userID_a","Session"), summarize,
+                         task = length(which(new.category %in% c(
+                           "examine-image","image metadata","open-field-guide") & userID != "(anonymous)")),
+                         viewing = length(which(new.category %in% c(
+                           "talk-bugs-view","talk-chat-view", "talk-help-view", "talk-science-view","talk-notes-view",
+                           "talk-view","talk-newglitches-view","talk-collections-view")  
+                            & userID != "(anonymous)")),
+                         socialize = length(which(new.category %in% c(
+                           "post-comment","edit-post","delete-post","private-message","update-comment")
+                           & userID != "(anonymous)")),
+                         learn = length(which(new.category %in% c(
+                           "tutorial", "mini-course") & userID != "(anonymous)")),
+                          community = length(which(new.category %in% c(
+                           "view-profile-author","gs-about","gs-collections","view-profile-author","gs-favorites",
+                           "keyword-search","hashtag-sidebar")  
+                           & userID != "(anonymous)")),
+                          impressions = length(which(new.category %in% c(
+                           "like-post", "unfavorite", "report-post","subscribe")  
+                           & userID != "(anonymous)")),
+                         classifications = length(which(new.category %in% c("classify")  
+                                                        & userID != "(anonymous)")),
+                          anontask = length(which(new.category %in% c(
+                           "examine-image","image metadata","open-field-guide") 
+                           & userID == "(anonymous)")),
+                         anonviewing = length(which(new.category %in% c(
+                           "talk-bugs-view","talk-chat-view", "talk-help-view", "talk-science-view","talk-notes-view",
+                           "talk-view","talk-newglitches-view","talk-collections-view")  
+                            & userID == "(anonymous)")),
+                         anonsocialize = length(which(new.category %in% c(
+                           "post-comment","edit-post","delete-post","private-message","update-comment")
+                           & userID == "(anonymous)")),
+                         anonlearn = length(which(new.category %in% c(
+                           "tutorial", "mini-course") 
+                           & userID == "(anonymous)")),
+                          anoncommunity = length(which(new.category %in% c(
+                           "view-profile-author","gs-about","gs-collections","view-profile-author","gs-favorites",
+                           "keyword-search","hashtag-sidebar")  
+                           & userID == "(anonymous)")),
+                         anonimpressions = length(which(new.category %in% c(
+                           "like-post", "unfavorite", "report-post","subscribe")  
+                           & userID == "(anonymous)")),
+                         anonclassifications = length(which(new.category %in% c("classify") & userID == "(anonymous)")),
+                         total_classifications = length(which(new.category %in% c("classify")))
+                         )
+
+geordi2_summary$anontype <- as.factor(ifelse(geordi2_summary$anonviewing > 0 | geordi2_summary$anonsocialize > 0 |
+                                      geordi2_summary$anonlearn > 0 | geordi2_summary$anoncommunity > 0 |
+                                      geordi2_summary$anonimpressions > 0 | geordi2_summary$anonclassifications > 0
+                                      ,1,0))
+
+geordi2_summary$anoninteraction <- geordi2_summary$anonviewing+geordi2_summary$anonsocialize+
+                                 geordi2_summary$anonlearn+geordi2_summary$anoncommunity+
+                                 geordi2_summary$anonimpressions
+
+geordi2_summary$identifiedinteraction <- geordi2_summary$viewing+geordi2_summary$socialize+
+                                 geordi2_summary$learn+geordi2_summary$community+
+                                 geordi2_summary$impressions
+
+geordi2_summary$totalinteraction <- geordi2_summary$identifiedinteraction + geordi2_summary$anoninteraction
 
 
-# Are there differences in volunteers who contribute anonymously compared to those who dont?
-# When users do contribute anonymously what does this behaviour mean for their future participation
+geordi2_summary$tasktype <- as.factor(ifelse(geordi2_summary$anontask > 0,1,0))
+geordi2_summary$viewingtype <- as.factor(ifelse(geordi2_summary$anonviewing > 0,1,0))
+geordi2_summary$socialzingtype <- as.factor(ifelse(geordi2_summary$anonsocialize > 0,1,0))
+geordi2_summary$learntype <- as.factor(ifelse(geordi2_summary$anonlearn > 0,1,0))
+geordi2_summary$communitytype <- as.factor(ifelse(geordi2_summary$anoncommunity > 0,1,0))
+geordi2_summary$impressiontype <- as.factor(ifelse(geordi2_summary$anonimpressions > 0,1,0))
+geordi2_summary$classifyingtype <- as.factor(ifelse(geordi2_summary$anonclassifications > 0,1,0))
 
+# First session
+geordi2_summary_first <- geordi2_summary[which(geordi2_summary$Session ==1),]
 ```
 
 ```{r}
+# Comparing for those who contribute anonymously (task,social, and project) (type = 1) whether they do more/less classifying than those who logged-in sessions (0)
+
+## does anonymous contribution lead to more classifications
+tapply(geordi2_summary_first$total_classifications,geordi2_summary_first$anontype, FUN = median)
+t.test(geordi2_summary_first$total_classifications~geordi2_summary_first$anontype)
+
+## users who contribute anonymously do more classifications in their first session (are they more involved in other interactions?)
+tapply(geordi2_summary_first$totalinteraction,geordi2_summary_first$anontype, FUN = median)
+wilcox.test(geordi2_summary_first$totalinteraction~geordi2_summary_first$anontype) # contribute same amount of interactions but sig. (strange)
+
+### TASK
+# More Classifying
+tapply(geordi2_summary_first$total_classifications,geordi2_summary_first$tasktype, FUN = mean)
+t.test(geordi2_summary_first$total_classifications~geordi2_summary_first$tasktype)
+# More Task
+tapply(geordi2_summary_first$task,geordi2_summary_first$tasktype, FUN = mean)
+t.test(geordi2_summary_first$task~geordi2_summary_first$tasktype)
+
+### VIEWING
+# More Classifying
+tapply(geordi2_summary_first$total_classifications,geordi2_summary_first$viewingtype, FUN = median)
+t.test(geordi2_summary_first$total_classifications~geordi2_summary_first$viewingtype)
+# More Viewing
+tapply(geordi2_summary_first$viewing,geordi2_summary_first$viewingtype, FUN = median)
+t.test(geordi2_summary_first$viewing~geordi2_summary_first$viewingtype)
+
+### Community
+# More Classifying
+tapply(geordi2_summary_first$total_classifications,geordi2_summary_first$communitytype, FUN = median)
+t.test(geordi2_summary_first$total_classifications~geordi2_summary_first$communitytype)
+# More Community
+tapply(geordi2_summary_first$community,geordi2_summary_first$communitytype, FUN = median)
+t.test(geordi2_summary_first$community~geordi2_summary_first$communitytype)
+
+# When users do contribute anonymously what does this behaviour mean for their future participation
 
 ```
 
@@ -432,7 +538,9 @@ geordi2$Classifications <- NULL
 
 ## RQ5. Participation around signing in for known volunteers
 ```{r, include=FALSE, warning=FALSE}
-
+# Sessions after having an account
+geordi2_summary_post <- geordi2_summary[which(geordi2_summary$Session > 1 & geordi2_summary$type == "1"),]
+geordi2_summary_post$Session <- as.factor(geordi2_summary_post$Session)
 ```
 
 ```{r}
