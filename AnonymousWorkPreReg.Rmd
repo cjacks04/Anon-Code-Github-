@@ -7,7 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE, warning=FALSE}
 #https://rmarkdown.rstudio.com/authoring_basics.html
-
+# http://www.sthda.com/english/articles/24-ggpubr-publication-ready-plots/ 
 library(ggplot2)
 library(plyr)
 library(reshape2)
@@ -17,6 +17,8 @@ library(knitr)
 library(kableExtra)
 library(gridExtra)
 library(corrplot)
+library(ggpubr)
+
 
 ```
 
@@ -63,7 +65,6 @@ geordi_nonanonymous$userID_a <- geordi_nonanonymous$userID # adds userID to colu
 
 geordi <- rbind(geordi_anonymous,geordi_nonanonymous) #Combine anon/non anon events
 remove(geordi_anonymous,geordi_nonanonymous,unique_combination) # remove unnecessary dataframes
-
 
 # concatenate events data
 geordi$new.categories <- paste(geordi$type, geordi$relatedID, geordi$data, sep="-")
@@ -277,7 +278,6 @@ kable_styling()
 #remove(anonymous_activities,anon_prepost)
 ```
 
-
 ## RQ2: Pre-registration anonymous traces
 ```{r include=FALSE, warning=FALSE}
 # order pre-reg events for visualization
@@ -328,7 +328,7 @@ kable_styling()
 * __Time to register when contributing anonymously__: There are `r length(which(geordi_summarypre$diff_in_days == 0))` (91%) volunteers who registered on the first day they joined the project, `r length(which(geordi_summarypre$diff_in_days > 0))` registered after this time with `r length(which(geordi_summarypre$diff_in_days == 1))` during the next day. 
 
 ```{r}
-
+# Histogram of time to register
 ```
 
 
@@ -341,7 +341,6 @@ geordi_summarypre <- merge(geordi_summarypre,pre_events_summary, by = "userID_a"
 remove(pre_events_summary)
 
 geordi_summarypre.cast <- dcast(pre_events, userID_a~new.category)
-
 
 ```
 * __Diversity of pre-registration activities__: 
@@ -474,55 +473,234 @@ geordi2_summary$identifiedinteraction <- geordi2_summary$viewing+geordi2_summary
 geordi2_summary$totalinteraction <- geordi2_summary$identifiedinteraction + geordi2_summary$anoninteraction
 
 
-geordi2_summary$tasktype <- as.factor(ifelse(geordi2_summary$anontask > 0,1,0))
-geordi2_summary$viewingtype <- as.factor(ifelse(geordi2_summary$anonviewing > 0,1,0))
-geordi2_summary$socialzingtype <- as.factor(ifelse(geordi2_summary$anonsocialize > 0,1,0))
-geordi2_summary$learntype <- as.factor(ifelse(geordi2_summary$anonlearn > 0,1,0))
-geordi2_summary$communitytype <- as.factor(ifelse(geordi2_summary$anoncommunity > 0,1,0))
-geordi2_summary$impressiontype <- as.factor(ifelse(geordi2_summary$anonimpressions > 0,1,0))
-geordi2_summary$classifyingtype <- as.factor(ifelse(geordi2_summary$anonclassifications > 0,1,0))
+geordi2_summary$tasktype <- as.factor(ifelse(geordi2_summary$anontask > 0 | geordi2_summary$task > 0,1,0))
+geordi2_summary$viewingtype <- as.factor(ifelse(geordi2_summary$anonviewing > 0 | geordi2_summary$viewing > 0,1,0))
+geordi2_summary$socialzingtype <- as.factor(ifelse(geordi2_summary$anonsocialize > 0 | geordi2_summary$socialize > 0,1,0))
+geordi2_summary$learntype <- as.factor(ifelse(geordi2_summary$anonlearn > 0 | geordi2_summary$learn > 0,1,0))
+geordi2_summary$communitytype <- as.factor(ifelse(geordi2_summary$anoncommunity > 0 | geordi2_summary$community > 0,1,0))
+geordi2_summary$impressiontype <- as.factor(ifelse(geordi2_summary$anonimpressions > 0 | geordi2_summary$impressions > 0,1,0))
+geordi2_summary$classifyingtype <- as.factor(ifelse(geordi2_summary$anonclassifications > 0 | geordi2_summary$classifications > 0,1,0))
 
 # First session
 geordi2_summary_first <- geordi2_summary[which(geordi2_summary$Session ==1),]
 ```
 
-```{r}
+```{r, include=FALSE, warning=FALSE}
+# Still around after session 1,2,3  by anonymous contributor status
+
+anonuserlist <- geordi2_summary_first$userID_a[which(geordi2_summary_first$anontype ==1)]
+nonanonuserlist <- geordi2_summary_first$userID_a[which(geordi2_summary_first$anontype ==0)]
+
+tasklist.a <- geordi2_summary_first$userID_a[which(geordi2_summary_first$anontype ==1 & geordi2_summary_first$tasktype == 1)]
+tasklist.n <- geordi2_summary_first$userID_a[which(geordi2_summary_first$anontype ==0 & geordi2_summary_first$tasktype == 1)]
+community.a <- geordi2_summary_first$userID_a[which(geordi2_summary_first$anontype ==1 & geordi2_summary_first$communitytype == 1)]
+community.n <- geordi2_summary_first$userID_a[which(geordi2_summary_first$anontype ==0 & geordi2_summary_first$communitytype == 1)]
+view.a <- geordi2_summary_first$userID_a[which(geordi2_summary_first$anontype ==1 & geordi2_summary_first$viewingtype == 1)]
+view.n <- geordi2_summary_first$userID_a[which(geordi2_summary_first$anontype ==0 & geordi2_summary_first$viewingtype == 1)]
+
+# Get activities of above users and summarize by session
+geordi2_lateranon <- geordi2[which(geordi2$userID_a %in% anonuserlist & geordi2$Session >1),]
+geordi2_laternonanon <- geordi2[which(geordi2$userID_a %in% nonanonuserlist & geordi2$Session >1),]
+
+geordi2_summary_anon <- ddply(geordi2_lateranon, c("Session"), summarize,
+                         users = length(unique(userID_a)),
+                         proportion = users/length(anonuserlist),
+                         task = length(which(new.category %in% c(
+                           "examine-image","image metadata","open-field-guide"))),
+                         viewing = length(which(new.category %in% c(
+                           "talk-bugs-view","talk-chat-view", "talk-help-view", "talk-science-view","talk-notes-view",
+                           "talk-view","talk-newglitches-view","talk-collections-view"))),
+                         socialize = length(which(new.category %in% c(
+                           "post-comment","edit-post","delete-post","private-message","update-comment"))),
+                         learn = length(which(new.category %in% c("tutorial", "mini-course"))),
+                          community = length(which(new.category %in% c(
+                           "view-profile-author","gs-about","gs-collections","view-profile-author","gs-favorites",
+                           "keyword-search","hashtag-sidebar"))),
+                          impressions = length(which(new.category %in% c(
+                           "like-post", "unfavorite", "report-post","subscribe"))),
+                         classifications = length(which(new.category %in% c("classify"))),
+                          anontask = length(which(new.category %in% c(
+                           "examine-image","image metadata","open-field-guide")))
+                         )
+geordi2_summary_anon$Anon.Type <- "Anon Contributor"
+
+geordi2_summary_nonanon <- ddply(geordi2_laternonanon, c("Session"), summarize,
+                         users = length(unique(userID_a)),
+                         proportion = users/length(nonanonuserlist),
+                         task = length(which(new.category %in% c(
+                           "examine-image","image metadata","open-field-guide"))),
+                         viewing = length(which(new.category %in% c(
+                           "talk-bugs-view","talk-chat-view", "talk-help-view", "talk-science-view","talk-notes-view",
+                           "talk-view","talk-newglitches-view","talk-collections-view"))),
+                         socialize = length(which(new.category %in% c(
+                           "post-comment","edit-post","delete-post","private-message","update-comment"))),
+                         learn = length(which(new.category %in% c("tutorial", "mini-course"))),
+                          community = length(which(new.category %in% c(
+                           "view-profile-author","gs-about","gs-collections","view-profile-author","gs-favorites",
+                           "keyword-search","hashtag-sidebar"))),
+                          impressions = length(which(new.category %in% c(
+                           "like-post", "unfavorite", "report-post","subscribe"))),
+                         classifications = length(which(new.category %in% c("classify"))),
+                          anontask = length(which(new.category %in% c(
+                           "examine-image","image metadata","open-field-guide")))
+                         )
+geordi2_summary_nonanon$Anon.Type <- "Non-Anon Contributor"
+geordi2_summary_future <- rbind(geordi2_summary_nonanon,geordi2_summary_anon)
+
+### Get data by user
+geordi2_user_summary_anon <- ddply(geordi2_lateranon, c("userID_a"), summarize,
+                         tenure_begin = min(time),
+                         tenure_end = max(time),
+                          task = length(which(new.category %in% c(
+                           "examine-image","image metadata","open-field-guide"))),
+                         viewing = length(which(new.category %in% c(
+                           "talk-bugs-view","talk-chat-view", "talk-help-view", "talk-science-view","talk-notes-view",
+                           "talk-view","talk-newglitches-view","talk-collections-view"))),
+                         socialize = length(which(new.category %in% c(
+                           "post-comment","edit-post","delete-post","private-message","update-comment"))),
+                         learn = length(which(new.category %in% c("tutorial", "mini-course"))),
+                          community = length(which(new.category %in% c(
+                           "view-profile-author","gs-about","gs-collections","view-profile-author","gs-favorites",
+                           "keyword-search","hashtag-sidebar"))),
+                          impressions = length(which(new.category %in% c(
+                           "like-post", "unfavorite", "report-post","subscribe"))),
+                         classifications = length(which(new.category %in% c("classify"))),
+                          anontask = length(which(new.category %in% c(
+                           "examine-image","image metadata","open-field-guide")))
+                         )
+geordi2_user_summary_anon$Anon.Type <- "Anon Contributor"
+geordi2_user_summary_anon$Task.Type <- ifelse(geordi2_user_summary_anon$userID_a %in% tasklist.a,"Task","No Task")
+geordi2_user_summary_anon$Community.Type <- ifelse(geordi2_user_summary_anon$userID_a %in% community.a,"Community","No Community")
+geordi2_user_summary_anon$Viewing.Type <-  ifelse(geordi2_user_summary_anon$userID_a %in% view.a,"Viewing","No Viewing")
+
+geordi2_user_summary_nonanon <- ddply(geordi2_laternonanon, c("userID_a"), summarize,
+                        tenure_begin = min(time),
+                         tenure_end = max(time),
+                         task = length(which(new.category %in% c(
+                           "examine-image","image metadata","open-field-guide"))),
+                         viewing = length(which(new.category %in% c(
+                           "talk-bugs-view","talk-chat-view", "talk-help-view", "talk-science-view","talk-notes-view",
+                           "talk-view","talk-newglitches-view","talk-collections-view"))),
+                         socialize = length(which(new.category %in% c(
+                           "post-comment","edit-post","delete-post","private-message","update-comment"))),
+                         learn = length(which(new.category %in% c("tutorial", "mini-course"))),
+                          community = length(which(new.category %in% c(
+                           "view-profile-author","gs-about","gs-collections","view-profile-author","gs-favorites",
+                           "keyword-search","hashtag-sidebar"))),
+                          impressions = length(which(new.category %in% c(
+                           "like-post", "unfavorite", "report-post","subscribe"))),
+                         classifications = length(which(new.category %in% c("classify"))),
+                          anontask = length(which(new.category %in% c(
+                           "examine-image","image metadata","open-field-guide")))
+                         )
+
+geordi2_user_summary_nonanon$Anon.Type <- "Non-Anon Contributor"
+geordi2_user_summary_nonanon$Task.Type <- ifelse(geordi2_user_summary_nonanon$userID_a %in% tasklist.n,"Task","No Task")
+geordi2_user_summary_nonanon$Community.Type <- ifelse(geordi2_user_summary_nonanon$userID_a %in% community.n,"Community","No Community")
+geordi2_user_summary_nonanon$Viewing.Type <-  ifelse(geordi2_user_summary_nonanon$userID_a %in% view.n,"Viewing","No Viewing")
+geordi2_user_summary_future <- rbind(geordi2_user_summary_nonanon,geordi2_user_summary_anon)
+
+remove(geordi2_summary_nonanon,geordi2_laternonanon,nonanonuserlist,geordi2_summary_anon,geordi2_lateranon,anonuserlist,geordi2_user_summary_nonanon,geordi2_user_summary_anon)
+```
+
+```{r }
+# Still contributing
+ggline(subset(geordi2_summary_future, Session <= 10), x = "Session", y = "proportion", 
+        #add = c("mean_se", "jitter"),
+        ylab = "Proportion of Volunteers",
+        color = "Anon.Type", palette = "jco")
+
+# boxplot of future classifications
+geordi2_user_summary_future$classifications.log <- log(geordi2_user_summary_future$classifications)
+geordi2_user_summary_future$classifications.log[geordi2_user_summary_future$classifications.log < 1] <- 0
+
+my_comparisons <- list( c("Non-Anon Contributor", "Anon Contributor"))
+ggerrorplot(geordi2_user_summary_future, x = "Anon.Type", y = "classifications.log",
+            desc_stat = "mean", color = "Anon.Type", 
+            add="dotplot", palette = "jco",
+            add.params = list(binwidth = 0.1, dotsize = 0.5)
+            )+ 
+  stat_compare_means(comparisons = my_comparisons)+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 15) 
+
+# Compare task
+geordi2_user_summary_future$task.log <- log(geordi2_user_summary_future$task)
+geordi2_user_summary_future$task.log[geordi2_user_summary_future$task.log < 1] <- 0
+
+my_comparisons.task <- list( c("Non-Anon Contributor", "Anon Contributor"),c("Task","No Task"))
+a <- ggerrorplot(geordi2_user_summary_future, x = "Task.Type", y = "task.log",
+            desc_stat = "mean_sd", color = "Anon.Type",
+            add="dotplot", palette = "jco", ylab = "Future Task (log)",
+            xlab = "Task in Session 1",
+            add.params = list(binwidth = 0.1, dotsize = 0.5))
+a + stat_compare_means(comparisons = my_comparisons.task, label.y = c(29, 35, 40))+
+  stat_compare_means(label.y = 45)
+
+# Compare viewing
+geordi2_user_summary_future$view.log <- log(geordi2_user_summary_future$viewing)
+geordi2_user_summary_future$view.log[geordi2_user_summary_future$view.log < 1] <- 0
+
+p <- ggerrorplot(geordi2_user_summary_future, x = "Viewing.Type", y = "view.log",
+            desc_stat = "mean_sd", color = "Anon.Type",
+            add="dotplot", palette = "jco", ylab = "Future Viewing (log)",
+            xlab = "Viewing in Session 1",
+            add.params = list(binwidth = 0.1, dotsize = 0.9))
+p + stat_compare_means(label = "p.format")
+           
+
+# Compare community
+geordi2_user_summary_future$community.log <- log(geordi2_user_summary_future$community)
+geordi2_user_summary_future$community.log[geordi2_user_summary_future$community.log < 1] <- 0
+
+m <- ggerrorplot(geordi2_user_summary_future, x = "Community.Type", y = "community.log",
+            desc_stat = "mean_sd", color = "Community.Type",
+            add="dotplot", palette = "jco", ylab = "Future Community (log)",
+            xlab = "Community in Session 1",facet.by = "Anon.Type",
+            add.params = list(binwidth = 0.1, dotsize = 0.9))
+m + stat_compare_means(label = "p.format")
+
+```
+
+
+```{r }
 # Comparing for those who contribute anonymously (task,social, and project) (type = 1) whether they do more/less classifying than those who logged-in sessions (0)
 
 ## does anonymous contribution lead to more classifications
 tapply(geordi2_summary_first$total_classifications,geordi2_summary_first$anontype, FUN = median)
-t.test(geordi2_summary_first$total_classifications~geordi2_summary_first$anontype)
-
+ wilcox.test(geordi2_summary_first$total_classifications~geordi2_summary_first$anontype)
 ## users who contribute anonymously do more classifications in their first session (are they more involved in other interactions?)
-tapply(geordi2_summary_first$totalinteraction,geordi2_summary_first$anontype, FUN = median)
+tapply(geordi2_summary_first$totalinteraction,geordi2_summary_first$anontype, FUN = mean)
 wilcox.test(geordi2_summary_first$totalinteraction~geordi2_summary_first$anontype) # contribute same amount of interactions but sig. (strange)
 
 ### TASK
+task <- geordi2_summary[which(geordi2_summary$tasktype =="1"),]
 # More Classifying
-tapply(geordi2_summary_first$total_classifications,geordi2_summary_first$tasktype, FUN = mean)
-t.test(geordi2_summary_first$total_classifications~geordi2_summary_first$tasktype)
+tapply(task$total_classifications,task$anontype, FUN = mean)
+wilcox.test(task$total_classifications~task$anontype)
 # More Task
-tapply(geordi2_summary_first$task,geordi2_summary_first$tasktype, FUN = mean)
-t.test(geordi2_summary_first$task~geordi2_summary_first$tasktype)
+tapply(task$task,task$anontype, FUN = mean)
+wilcox.test(task$task~task$anontype)
+remove(task)
 
 ### VIEWING
+viewing <- geordi2_summary[which(geordi2_summary$viewingtype =="1"),]
 # More Classifying
-tapply(geordi2_summary_first$total_classifications,geordi2_summary_first$viewingtype, FUN = median)
-t.test(geordi2_summary_first$total_classifications~geordi2_summary_first$viewingtype)
+tapply(viewing$total_classifications,viewing$anontype, FUN = median)
+wilcox.test(viewing$total_classifications~viewing$anontype)
 # More Viewing
-tapply(geordi2_summary_first$viewing,geordi2_summary_first$viewingtype, FUN = median)
-t.test(geordi2_summary_first$viewing~geordi2_summary_first$viewingtype)
+tapply(viewing$viewing,viewing$anontype, FUN = median)
+wilcox.test(viewing$viewing~viewing$anontype)
+remove(viewing)
 
 ### Community
+community <- geordi2_summary[which(geordi2_summary$communitytype =="1"),]
 # More Classifying
-tapply(geordi2_summary_first$total_classifications,geordi2_summary_first$communitytype, FUN = median)
-t.test(geordi2_summary_first$total_classifications~geordi2_summary_first$communitytype)
+tapply(community$total_classifications,community$anontype, FUN = median)
+wilcox.test(community$total_classifications~community$anontype)
 # More Community
-tapply(geordi2_summary_first$community,geordi2_summary_first$communitytype, FUN = median)
-t.test(geordi2_summary_first$community~geordi2_summary_first$communitytype)
-
-# When users do contribute anonymously what does this behaviour mean for their future participation
-
+tapply(community$community,community$anontype, FUN = median)
+wilcox.test(community$community~community$anontype)
+remove(community)
 ```
 
 ### Summary of RQ4 results
@@ -539,8 +717,10 @@ t.test(geordi2_summary_first$community~geordi2_summary_first$communitytype)
 ## RQ5. Participation around signing in for known volunteers
 ```{r, include=FALSE, warning=FALSE}
 # Sessions after having an account
-geordi2_summary_post <- geordi2_summary[which(geordi2_summary$Session > 1 & geordi2_summary$type == "1"),]
+geordi2_summary_post <- geordi2_summary[which(geordi2_summary$Session > 1 & geordi2_summary$anontype == "1"),]
 geordi2_summary_post$Session <- as.factor(geordi2_summary_post$Session)
+
+#There are 335 unique volunteers and 864 sessions
 ```
 
 ```{r}
