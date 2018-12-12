@@ -154,22 +154,43 @@ geordi <- geordi[which(!is.na(geordi$userID_a)),] #2017383
 
 
 # activity summary 
-geordi_vis <- ddply(subset(geordi,userID =="(anonymous)"), c("meta","new.category"),summarize, 
+geordi_visall <- ddply(subset(geordi_all_anon,userID =="(anonymous)"), c("meta","new.category"),summarize, 
+                           users = length(unique(clientIP)),
+                           activities = length(userID_a))
+
+geordi_vislinked <- ddply(subset(geordi,userID =="(anonymous)"), c("meta","new.category"),summarize, 
                            users = length(unique(userID_a)),
                            activities = length(userID_a))
 
-# plot 
-ggbarplot(subset(geordi_vis, !meta %in% c("classification","impressions","learn")), x = "new.category", y = "users",
-          fill = "meta",               # change fill color by cyl
-          color = "white",            # Set bar border colors to white
-          palette = "jco",            # jco journal color palett. see ?ggpar
-          sort.val = "asc",           # Sort the value in dscending order
-          sort.by.groups = TRUE,      # Sort inside each group
-          x.text.angle = 90           # Rotate vertically x axis texts
-          )
+# simple bar plot 
+# ggbarplot(subset(geordi_vis, !meta %in% c("classification","impressions","learn")), x = "new.category", y = "users",
+#           fill = "meta",               # change fill color by cyl
+#           color = "white",            # Set bar border colors to white
+#           palette = "jco",            # jco journal color palett. see ?ggpar
+#           sort.val = "asc",           # Sort the value in dscending order
+#           sort.by.groups = TRUE,      # Sort inside each group
+#           x.text.angle = 90           # Rotate vertically x axis texts
+#           )
+
+g <- ggdotchart(subset(geordi_visall, !meta %in% c("classification","impressions","learn")), x = "new.category", y = "activities",
+           color = "meta",                                # Color by groups
+           palette = "jco", # Custom color palette
+           sorting = "descending",                       # Sort value in descending order
+           add = "segments",                             # Add segments from y = 0 to dots
+           rotate = FALSE,                                # Rotate vertically
+           group = "meta",                                # Order by groups
+           dot.size = 6,                                 # Large dot size
+           label = "users",         # Add mpg values as dot labels
+           font.label = list(color = "white", size = 9, 
+                             vjust = 0.5),               # Adjust label parameters
+           ggtheme = theme_pubr(),                       # ggplot2 theme
+           ylab = "Event Count",xlab = "Event"
+           )
+
+g <- g + font("xy.text", size = 9) 
 
 
-p <- ggdotchart(subset(geordi_vis, !meta %in% c("classification","impressions","learn")), x = "new.category", y = "activities",
+p <- ggdotchart(subset(geordi_vislinked, !meta %in% c("classification","impressions","learn")), x = "new.category", y = "activities",
            color = "meta",                                # Color by groups
            palette = "jco", # Custom color palette
            sorting = "descending",                       # Sort value in descending order
@@ -185,13 +206,15 @@ p <- ggdotchart(subset(geordi_vis, !meta %in% c("classification","impressions","
            )
 
 p <- p + font("xy.text", size = 9) 
-ggpar(p, legend.title = "Meta-interaction")
 
 ```
 
 ```{r}
-# report results from all anonymnous events
-allanon
+# report results from anonymnous events we linked
+ggpar(g, legend.title = "Meta-interaction")
+
+ggpar(p, legend.title = "Meta-interaction")
+
 ```
 
 ### Analysis: Anonymous events that we were able to link to a user account
