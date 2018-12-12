@@ -90,11 +90,25 @@ geordi <- geordi[which(!geordi$new.category %in% c("close-field-guide","register
 # (talk-view) landing page for list of threads 
 # (view-talk) viewing boards from project page. Only boards. Not sure if they clicked
 # (view-discussion) viewing a single thread. Not sure where these views origniated. (use talk-N-view as proxy)
+
+
+## Add meta-categories to dataset
+geordi$meta[geordi$new.category %in% c("examine-image","image metadata","open-field-guide")] <- "task"
+geordi$meta[geordi$new.category %in% c("talk-bugs-view","talk-chat-view", "talk-help-view",                                 
+                                "talk-science-view","talk-notes-view","talk-view","talk-newglitches-view",
+                                "talk-collections-view")] <- "viewing"
+geordi$meta[geordi$new.category %in% c("post-comment","edit-post","delete-post","private-message",
+                                       "update-comment","create-discussion")] <- "socialize"
+geordi$meta[geordi$new.category %in% c("tutorial", "mini-course")] <- "learn"
+geordi$meta[geordi$new.category %in% c( "view-profile-author","gs-about","gs-collections","view-profile-author"
+                                        ,"gs-favorites","keyword search","hashtag-sidebar","view-member-profile")] <- "community"
+geordi$meta[geordi$new.category %in% c("like-post", "unfavorite", "report-post","subscribe")] <- "impressions"
+geordi$meta[geordi$new.category %in% c("classify")] <- "classification"
+
 geordi_org <- geordi
 
 # remove events that weren't important
 geordi <- geordi[which(!is.na(geordi$new.category)),]
-
 remove(unique_ips,events)
 ```
 
@@ -123,20 +137,56 @@ geordi_anonymous_nolink <- geordi[which(is.na(geordi$userID_a)),] #117877 no lin
 # Anonymous traces we were able to link
 geordi <- geordi[which(!is.na(geordi$userID_a)),] #2017383
 
-anonymous_activities <- count(geordi_all_anon$new.category[which(geordi_all_anon$userID=="(anonymous)")])
-colnames(anonymous_activities)[1] <- "event"
+# anonymous_activities <- count(geordi_all_anon$new.category[which(geordi_all_anon$userID=="(anonymous)")])
+# colnames(anonymous_activities)[1] <- "event"
+# 
+# anonymous_activities$event <- factor(anonymous_activities$event, levels=unique(as.character(anonymous_activities$event)) )
+# anonymous_activities <- transform(anonymous_activities, event=reorder(event, -freq) )
 
-anonymous_activities$event <- factor(anonymous_activities$event, levels=unique(as.character(anonymous_activities$event)) )
-anonymous_activities <- transform(anonymous_activities, event=reorder(event, -freq) )
+# allanon <- ggplot(subset(anonymous_activities, event != "classify"), aes(event, freq)) + 
+#   geom_bar(stat = "identity", fill="dodgerblue4") + 
+#   coord_flip() + 
+#   labs(x="Event Category",y="Frequency", title="Anon events linked and not linked") + 
+#   theme(
+#     axis.text.x=element_text(size=9),
+#     axis.text.y=element_text(size=9)
+#   )
 
-allanon <- ggplot(subset(anonymous_activities, event != "classify"), aes(event, freq)) + 
-  geom_bar(stat = "identity", fill="dodgerblue4") + 
-  coord_flip() + 
-  labs(x="Event Category",y="Frequency", title="Anon events linked and not linked") + 
-  theme(
-    axis.text.x=element_text(size=9),
-    axis.text.y=element_text(size=9)
-  )
+
+# activity summary 
+geordi_vis <- ddply(subset(geordi,userID =="(anonymous)"), c("meta","new.category"),summarize, 
+                           users = length(unique(userID_a)),
+                           activities = length(userID_a))
+
+# plot 
+ggbarplot(subset(geordi_vis, !meta %in% c("classification","impressions","learn")), x = "new.category", y = "users",
+          fill = "meta",               # change fill color by cyl
+          color = "white",            # Set bar border colors to white
+          palette = "jco",            # jco journal color palett. see ?ggpar
+          sort.val = "asc",           # Sort the value in dscending order
+          sort.by.groups = TRUE,      # Sort inside each group
+          x.text.angle = 90           # Rotate vertically x axis texts
+          )
+
+
+p <- ggdotchart(subset(geordi_vis, !meta %in% c("classification","impressions","learn")), x = "new.category", y = "activities",
+           color = "meta",                                # Color by groups
+           palette = "jco", # Custom color palette
+           sorting = "descending",                       # Sort value in descending order
+           add = "segments",                             # Add segments from y = 0 to dots
+           rotate = FALSE,                                # Rotate vertically
+           group = "meta",                                # Order by groups
+           dot.size = 6,                                 # Large dot size
+           label = "users",         # Add mpg values as dot labels
+           font.label = list(color = "white", size = 9, 
+                             vjust = 0.5),               # Adjust label parameters
+           ggtheme = theme_pubr(),                       # ggplot2 theme
+           ylab = "Event Count",xlab = "Event"
+           )
+
+p <- p + font("xy.text", size = 9) 
+ggpar(p, legend.title = "Meta-interaction")
+
 ```
 
 ```{r}
@@ -537,7 +587,7 @@ geordi2_summary_nonanon <- ddply(geordi2_laternonanon, c("Session"), summarize,
                          learn = length(which(new.category %in% c("tutorial", "mini-course"))),
                           community = length(which(new.category %in% c(
                            "view-profile-author","gs-about","gs-collections","view-profile-author","gs-favorites",
-                           "keyword-search","hashtag-sidebar"))),
+                           "keyword search","hashtag-sidebar"))),
                           impressions = length(which(new.category %in% c(
                            "like-post", "unfavorite", "report-post","subscribe"))),
                          classifications = length(which(new.category %in% c("classify"))),
@@ -561,7 +611,7 @@ geordi2_user_summary_anon <- ddply(geordi2_lateranon, c("userID_a"), summarize,
                          learn = length(which(new.category %in% c("tutorial", "mini-course"))),
                           community = length(which(new.category %in% c(
                            "view-profile-author","gs-about","gs-collections","view-profile-author","gs-favorites",
-                           "keyword-search","hashtag-sidebar"))),
+                           "keyword search","hashtag-sidebar"))),
                           impressions = length(which(new.category %in% c(
                            "like-post", "unfavorite", "report-post","subscribe"))),
                          classifications = length(which(new.category %in% c("classify"))),
@@ -586,7 +636,7 @@ geordi2_user_summary_nonanon <- ddply(geordi2_laternonanon, c("userID_a"), summa
                          learn = length(which(new.category %in% c("tutorial", "mini-course"))),
                           community = length(which(new.category %in% c(
                            "view-profile-author","gs-about","gs-collections","view-profile-author","gs-favorites",
-                           "keyword-search","hashtag-sidebar"))),
+                           "keyword search","hashtag-sidebar"))),
                           impressions = length(which(new.category %in% c(
                            "like-post", "unfavorite", "report-post","subscribe"))),
                          classifications = length(which(new.category %in% c("classify"))),
@@ -634,7 +684,7 @@ a <- ggerrorplot(geordi2_user_summary_future, x = "Task.Type", y = "task.log",
             xlab = "Task in Session 1",
             add.params = list(binwidth = 0.1, dotsize = 0.5))
 a + stat_compare_means(comparisons = my_comparisons.task, label.y = c(29, 35, 40))+
-  stat_compare_means(label.y = 45)
+  stat_compare_means(label.y = 10)
 
 # Compare viewing
 geordi2_user_summary_future$view.log <- log(geordi2_user_summary_future$viewing)
@@ -647,7 +697,6 @@ p <- ggerrorplot(geordi2_user_summary_future, x = "Viewing.Type", y = "view.log"
             add.params = list(binwidth = 0.1, dotsize = 0.9))
 p + stat_compare_means(label = "p.format")
            
-
 # Compare community
 geordi2_user_summary_future$community.log <- log(geordi2_user_summary_future$community)
 geordi2_user_summary_future$community.log[geordi2_user_summary_future$community.log < 1] <- 0
