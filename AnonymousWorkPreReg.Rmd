@@ -25,6 +25,8 @@ library(ggpubr)
 ```{r,  include=FALSE, warning=FALSE}
 # import datasets 
 geordi <- read_csv("~/Dropbox/INSPIRE/Data/System dumps/geordi-1-5-17.csv") # The raw geordi dataet
+geordi_org <- read_csv("~/Dropbox/INSPIRE/Data/System dumps/geordi-1-5-17.csv") # The raw geordi dataet
+
 
 # remove unnecessary columns 
 geordi <- geordi[,-c(3,8,10:17,19)]
@@ -79,14 +81,14 @@ geordi <- merge(geordi,events, by="new.categories", all.x=TRUE)
 
 # create the original dataset
 
-# Combine tutorials events 
+# Change experiment classificaions to classify
 geordi$new.category[geordi$type.x %in% c("classificationStart")] <- "classify"
 
-# Change experiment classificaions to classify
+# Combine tutorials events 
 geordi$new.category[geordi$new.category %in% c("tutorial - beginner 2","tutorial - beginner 1","tutorial - no training","tutorial - beginner 3","tutorial - apprentice","tutorial - master","tutorial")] <- "tutorial"
 
-# Keep only traces important
-geordi <- geordi[which(!geordi$new.category %in% c("close-field-guide","register account","login","register account","click-favorite","link-post","logout","recent-comments-sidebar","view-talk","view-discussion","reply-post","paging")),]
+# Remove events
+geordi <- geordi[which(!geordi$new.category %in% c("close-field-guide","register account","login","register account","link-post","logout","recent-comments-sidebar","view-talk","view-discussion","reply-post","paging")),]
 # (talk-view) landing page for list of threads 
 # (view-talk) viewing boards from project page. Only boards. Not sure if they clicked
 # (view-discussion) viewing a single thread. Not sure where these views origniated. (use talk-N-view as proxy)
@@ -102,34 +104,23 @@ geordi$meta[geordi$new.category %in% c("post-comment","edit-post","delete-post",
 geordi$meta[geordi$new.category %in% c("tutorial", "mini-course")] <- "learn"
 geordi$meta[geordi$new.category %in% c( "view-profile-author","gs-about","gs-collections","view-profile-author"
                                         ,"gs-favorites","keyword search","hashtag-sidebar","view-member-profile")] <- "community"
-geordi$meta[geordi$new.category %in% c("like-post", "unfavorite", "report-post","subscribe")] <- "impressions"
+geordi$meta[geordi$new.category %in% c("like-post", "unfavorite", "report-post","subscribe","click-favorite")] <- "impressions"
 geordi$meta[geordi$new.category %in% c("classify")] <- "classification"
-
-geordi_org <- geordi
 
 # remove events that weren't important
 geordi <- geordi[which(!is.na(geordi$new.category)),]
 remove(unique_ips,events)
 ```
 
+## RQ1: Exploring the geordi dataset
 
-```{r}
-# Add sesssion variable to dataframe
-```
-
-## RQ1: Exploring the dataset
-
-### Analysis: All anonymous events that we were able to link to a user account
-
-* Geordi traces: `r length(geordi$clientIP)` 
-* Users: `r length(joindate$userID)`  
-* IPs `r length(unique(geordi$clientIP))`  
-* Trace type after matching:  
-    + Logged-In: `r length(geordi$userID[geordi$userID != "(anonymous)"])`  
-    + Identified:`r length(geordi$userID[geordi$userID == "(anonymous)" & !is.na(geordi$userID_a)])`  
-    + Anonymous: `r length(geordi$userID_a[is.na(geordi$userID_a)])` 
-
+#### Analysis: All anonymous events
 ```{r include=FALSE, warning=FALSE}
+
+####################################### 
+######## Datasets for analysis ######## 
+#######################################
+
 # All anonymous (linked and not linked)
 geordi_all_anon <- geordi
 # Anonymous traces we weren't able to link
@@ -137,33 +128,29 @@ geordi_anonymous_nolink <- geordi[which(is.na(geordi$userID_a)),] #117877 no lin
 # Anonymous traces we were able to link
 geordi <- geordi[which(!is.na(geordi$userID_a)),] #2017383
 
-# anonymous_activities <- count(geordi_all_anon$new.category[which(geordi_all_anon$userID=="(anonymous)")])
-# colnames(anonymous_activities)[1] <- "event"
-# 
-# anonymous_activities$event <- factor(anonymous_activities$event, levels=unique(as.character(anonymous_activities$event)) )
-# anonymous_activities <- transform(anonymous_activities, event=reorder(event, -freq) )
+####################################### 
+####################################### 
+#######################################
 
-# allanon <- ggplot(subset(anonymous_activities, event != "classify"), aes(event, freq)) + 
-#   geom_bar(stat = "identity", fill="dodgerblue4") + 
-#   coord_flip() + 
-#   labs(x="Event Category",y="Frequency", title="Anon events linked and not linked") + 
-#   theme(
-#     axis.text.x=element_text(size=9),
-#     axis.text.y=element_text(size=9)
-#   )
-
-
+#### Visualize all anonymous activities
 # activity summary 
 geordi_visall <- ddply(subset(geordi_all_anon,userID =="(anonymous)"), c("meta","new.category"),summarize, 
                            users = length(unique(clientIP)),
                            activities = length(userID_a))
 
-geordi_vislinked <- ddply(subset(geordi,userID =="(anonymous)"), c("meta","new.category"),summarize, 
-                           users = length(unique(userID_a)),
-                           activities = length(userID_a))
-
 # simple bar plot 
-# ggbarplot(subset(geordi_vis, !meta %in% c("classification","impressions","learn")), x = "new.category", y = "users",
+m <- ggbarplot(subset(geordi_visall, !meta %in% c("classification","impressions","learn")), x = "new.category", y = "activities",
+          fill = "meta",               # change fill color by cyl
+          color = "white",            # Set bar border colors to white
+          palette = "jco",            # jco journal color palett. see ?ggpar
+          sort.val = "asc",           # Sort the value in dscending order
+          sort.by.groups = TRUE,      # Sort inside each group
+          x.text.angle = 90,
+          ylab = "Event Count",xlab = "Event" # Rotate vertically x axis texts
+          )
+m <- m + font("xy.text", size = 9) 
+
+# ggbarplot(subset(geordi_vislinked, !meta %in% c("classification","impressions","learn")), x = "new.category", y = "users",
 #           fill = "meta",               # change fill color by cyl
 #           color = "white",            # Set bar border colors to white
 #           palette = "jco",            # jco journal color palett. see ?ggpar
@@ -172,23 +159,38 @@ geordi_vislinked <- ddply(subset(geordi,userID =="(anonymous)"), c("meta","new.c
 #           x.text.angle = 90           # Rotate vertically x axis texts
 #           )
 
-g <- ggdotchart(subset(geordi_visall, !meta %in% c("classification","impressions","learn")), x = "new.category", y = "activities",
-           color = "meta",                                # Color by groups
-           palette = "jco", # Custom color palette
-           sorting = "descending",                       # Sort value in descending order
-           add = "segments",                             # Add segments from y = 0 to dots
-           rotate = FALSE,                                # Rotate vertically
-           group = "meta",                                # Order by groups
-           dot.size = 6,                                 # Large dot size
-           label = "users",         # Add mpg values as dot labels
-           font.label = list(color = "white", size = 9, 
-                             vjust = 0.5),               # Adjust label parameters
-           ggtheme = theme_pubr(),                       # ggplot2 theme
-           ylab = "Event Count",xlab = "Event"
-           )
+ #Complex line/point
+# g <- ggdotchart(subset(geordi_visall, !meta %in% c("classification","impressions","learn")), x = "new.category", y = "activities",
+#            color = "meta",                                # Color by groups
+#            palette = "jco", # Custom color palette
+#            sorting = "descending",                       # Sort value in descending order
+#            add = "segments",                             # Add segments from y = 0 to dots
+#            rotate = FALSE,                                # Rotate vertically
+#            group = "meta",                                # Order by groups
+#            dot.size = 6,                                 # Large dot size
+#            label = "users",         # Add mpg values as dot labels
+#            font.label = list(color = "white", size = 9, 
+#                              vjust = 0.5),               # Adjust label parameters
+#            ggtheme = theme_pubr(),                       # ggplot2 theme
+#            ylab = "Event Count",xlab = "Event"
+#            )
+# 
+# g <- g + font("xy.text", size = 9) 
+```
 
-g <- g + font("xy.text", size = 9) 
+```{r}
+# all anonymous activities excluding classifications
+ggpar(m, legend.title = "Meta-interaction")
 
+```
+
+#### Analysis: Anonymous events that we were able to link to a user account
+```{r include=FALSE, warning=FALSE}
+
+## Visualize all linked anonymous classifications
+geordi_vislinked <- ddply(subset(geordi,userID =="(anonymous)"), c("meta","new.category"),summarize, 
+                           users = length(unique(userID_a)),
+                           activities = length(userID_a))
 
 p <- ggdotchart(subset(geordi_vislinked, !meta %in% c("classification","impressions","learn")), x = "new.category", y = "activities",
            color = "meta",                                # Color by groups
@@ -204,33 +206,17 @@ p <- ggdotchart(subset(geordi_vislinked, !meta %in% c("classification","impressi
            ggtheme = theme_pubr(),                       # ggplot2 theme
            ylab = "Event Count",xlab = "Event"
            )
-
 p <- p + font("xy.text", size = 9) 
 
-```
-
-```{r}
-# report results from anonymnous events we linked
-ggpar(g, legend.title = "Meta-interaction")
-
-ggpar(p, legend.title = "Meta-interaction")
-
-```
-
-### Analysis: Anonymous events that we were able to link to a user account
-
-```{r include=FALSE, warning=FALSE}
-# Linked reporting using geordi dataset generated above
-
-## Note events before a user's first loggedin classification
+## Indication events before a user's first loggedin classification
 geordi <- merge(geordi,joindate, by.y=("userID"), by.x=("userID_a"), all.x = TRUE)
 geordi$preevent <- ifelse(geordi$time < geordi$firstclass,1,0) #1 if the record is before registering
 
-# User future contribution summary
+# Contribution summary of all events in geordi
 geordi_summary <- ddply(geordi, c("userID_a"), summarize, 
                         activities = length(userID_a),
-                        anonymous = length(which(userID=="(anonymous)")),
-                        logged_in = length(which(!userID=="(anonymous)")),
+                        anonymouscount = length(which(userID=="(anonymous)")), # all activities that were anon.
+                        loggedincount = length(which(!userID=="(anonymous)")), # count activities that are not anon
                         first_classification = min(firstclass),
                         first_activitiy = min(time),
                         pre_reg_anon_activities = length(which(userID=="(anonymous)" & preevent ==1)),
@@ -240,58 +226,92 @@ geordi_summary <- ddply(geordi, c("userID_a"), summarize,
                         )
 geordi_summary$timepre <- geordi_summary$first_classification - geordi_summary$first_activitiy
 # number will be diferent from 8606 above because some users don't actually classify. They create accounts and explore the system. 
-
-# Analysis of the geordi_summary. How many users are anonymous/never anonymous etc. Have Akshay explore this for RQ1
 ```
 
 ```{r}
 # Report out results from geordi analysis here
+ggpar(p, legend.title = "Meta-interaction")
+
 ```
 
-### Analysis: Anonymous events that we were not to link to a user account
+* __Descriptions of linked anonymous events__: 
+
+#### Analysis: Anonymous sessions not linked to a user. 
 
 All anonymous events for which we were able to link to a user account. There is another dataset that has `r length(geordi_anonymous_nolink$userID)` events that we weren't able to link to users.
 
 ```{r, include=FALSE, warning=FALSE}
 # The anonymous activities use (geordi_anonymous_nolink) to do analysis on individual traces
+# Export and run session info then reimport 
+# setwd("~/Dropbox/INSPIRE/Papers & Presentations/Anonymous Work (Journal)/Data")
+# write.csv(geordi_anonymous_nolink,"geordiIP_nolink.csv")
+geordi_anonymous_nolink <- read_csv("~/Dropbox/INSPIRE/Papers & Presentations/Anonymous Work (Journal)/Data/geordiIP_nolinksession.csv") # The raw geordi dataet
 
+# Summary by clientIP and session
+geordi_summary_nolink <- ddply(geordi_anonymous_nolink, c("clientIP","Session"), summarize, 
+                        activities = length(clientIP),
+                        first_activity = min(time),
+                        first_classification = min(time[meta == "classification"]),
+                        first_nonclassactivitiy = min(time[meta != "classification"]),
+                        last_activity = max(time),
+                        task = length(which(new.category %in% c(
+                           "examine-image","image metadata","open-field-guide"))),
+                         viewing = length(which(new.category %in% c(
+                           "talk-bugs-view","talk-chat-view", "talk-help-view", "talk-science-view","talk-notes-view",
+                           "talk-view","talk-newglitches-view","talk-collections-view"))),
+                         socialize = length(which(new.category %in% c(
+                           "post-comment","edit-post","delete-post","private-message","update-comment"))),
+                         learn = length(which(new.category %in% c("tutorial", "mini-course"))),
+                          community = length(which(new.category %in% c(
+                           "view-profile-author","gs-about","gs-collections","view-profile-author","gs-favorites",
+                           "keyword-search","hashtag-sidebar"))),
+                          impressions = length(which(new.category %in% c(
+                           "like-post", "unfavorite", "report-post","subscribe"))),
+                          classifications = length(which(new.category %in% c("classify")))
+                        )
+geordi_summary_nolink$sessionlength <- geordi_summary_nolink$last_activity - geordi_summary_nolink$first_activity
+
+# Create visualizations for meta-interactions
+geordi_visnonlinked <- ddply(geordi_anonymous_nolink, c("meta","new.category"),summarize, 
+                           users = length(unique(clientIP)),
+                           activities = length(clientIP))
+
+l <- ggdotchart(subset(geordi_visnonlinked, !meta %in% c("classification")), x = "new.category", y = "activities",
+           color = "meta",                                # Color by groups
+           palette = "jco", # Custom color palette
+           sorting = "descending",                       # Sort value in descending order
+           add = "segments",                             # Add segments from y = 0 to dots
+           rotate = FALSE,                                # Rotate vertically
+           group = "meta",                                # Order by groups
+           dot.size = 8,                                 # Large dot size
+           label = "users",         # Add mpg values as dot labels
+           font.label = list(color = "white", size = 9, 
+                             vjust = 0.5),               # Adjust label parameters
+           ggtheme = theme_pubr(),                       # ggplot2 theme
+           ylab = "Event Count",xlab = "Event"
+           )
+l <- l + font("xy.text", size = 9) 
 
 ```
 
 ```{r}
 # Report out results from geordi_anonymous_nolink analysis here
-
+ggpar(l, legend.title = "Meta-interaction")
 
 ```
 
-
-### Other Behaviors
-
+* __Maintaining anonyomity__:Not logging in is a much greater phenomenon than previously thought. We can statistically determine whether first sessions are longer (more diverse) than those first sessions of volunteers who login. Appears to be advanced volunteers engaging in advanced work... e.g., liking posts.
+ 
 #### Analysis: Users who never classified, but explored the system. What events did they execute? 
-
-There were `r length(joindate$userID[!(joindate$userID %in% geordi_summary$userID_a)])` users who created accounts, explored the system but never executed a classification.  
-
 ```{r include=FALSE, warning=FALSE}
 nonclassusers <- joindate$userID[!(joindate$userID %in% geordi_summary$userID_a)] #304 not classifying...registered and explored
 geordi_regnonclass <-  geordi_org[which(geordi_org$userID %in% nonclassusers),]
 remove(nonclassusers)
 
 #Use geordi_regnonclass to explore non-classifying volunteers. 
-
 ```
 
-#### Analysis: Sessions with full anonyomity 
-```{r}
-
-```
-
-### Summary of RQ1 results
-Write main takeaways for RQ1
-
-* unordered list
-    + sub-item 1 
-    + sub-item 2 
-        - sub-sub-item 1  
+* __Perpetual exploring__: The volunteers who only explored the system but never submitted a classification. 
 
 *****  
 
@@ -299,185 +319,119 @@ Write main takeaways for RQ1
 ```{r, include=FALSE, warning=FALSE}
 # pre-reg and post-reg anon
 baregister <- geordi[which(geordi$userID=="(anonymous)"),]
-regsummary <- ddply(baregister, c("new.category","preevent"), summarise,
-                    count = length(new.category)
+regsummary <- ddply(baregister, c("meta","preevent"), summarise,
+                    count = length(new.category),
+                    users = length(unique(userID_a))
 )
-regsummary.cast <- dcast(regsummary, new.category~preevent)
-colnames(regsummary.cast)[2] <- "Postreg"
-colnames(regsummary.cast)[3] <- "Prereg"
 
-regsummary$preevent <- factor(regsummary$preevent)
-#regsummary <- na.omit(regsummary)
-
-regsummary$new.category <- factor(regsummary$new.category, levels=unique(as.character(regsummary$new.category)) )
-regsummary <- transform(regsummary, new.category=reorder(new.category, -count) ) 
-
-anon_prepost <- ggplot(subset(regsummary, new.category != "classify"), aes(new.category,count, fill=preevent)) + 
-  geom_bar(stat = "identity") + scale_fill_manual(labels = c("Pre-reg.", "Post-reg."),values = c("deepskyblue4","orangered1")) + coord_flip() +
-  labs(x="Activities",y="Number of Activities") +
-  guides(fill=guide_legend(title="Type")) + 
-  scale_x_discrete(NULL, expand = waiver(), position = "bottom") 
-
-## Categories of activity
-prepostreg_summary <- ddply(baregister, c("new.category","preevent"), summarize,
+### Pre-registration
+prereganon <- baregister[which(baregister$preevent == 1),]
+prereg_summary.meta <- ddply(prereganon, c("meta"), summarize,
                          users = length(unique(userID_a)),
-                         count = length(userID_a)
+                         prop_users = round(users/length(unique(prereganon$userID_a)),digits=4),
+                         count = length(userID_a),
+                         pro_count = round(count/dim(prereganon)[1],digits=4)
 )
-  
 
-prepostreg_summary$preevent[prepostreg_summary$preevent==0] <- "Post-reg"
-prepostreg_summary$preevent[prepostreg_summary$preevent==1] <- "Pre-reg"
+prereg_summary <- ddply(prereganon, c("meta","new.category"), summarize,
+                         users = length(unique(userID_a)),
+                         prop_users = round(users/length(unique(prereganon$userID_a)),digits=4),
+                         count = length(userID_a),
+                         prop_count = round(count/dim(prereganon)[1],digits=4)
+)
+q1.meta <- ggbarplot(subset(prereg_summary.meta, !meta %in% c("learn","classification")  ), 
+                     x = "meta", y = "users",fill = "meta", color = "meta",xlab="Meta-Interaction",
+                    palette = "jco", sorting = "descending",rotate = TRUE)
+q1.meta <- q1.meta + font("xy.text", size = 9) 
 
-geordi_summarypre <- geordi_summary[which(geordi_summary$pre_reg_anon_activities !=0),]
-### use geordi_summarypre (summarized) and baregister (each record) to analyze anonymous events pre-registration Code to get records is userID=="(anonymous)" & preevent ==1
-pre_events <- baregister[which(baregister$userID=="(anonymous)" & baregister$preevent ==1),]
-preuser_allevents <- geordi[which(geordi$userID_a %in% geordi_summarypre$userID_a),]
+q1 <- ggbarplot(subset(prereg_summary, !meta %in% c("learn","classification")), 
+                x = "new.category", y = "users",fill = "meta", color = "meta",xlab="Event", 
+                palette = "jco", sorting = "descending",rotate = TRUE)
+q1 <- q1 + font("xy.text", size = 9) 
 
-geordi_summarypost <- geordi_summary[which(geordi_summary$post_reg_anon_activities !=0),]
-### use geordi_summarypost (summarized) and baregister (with prev) (each record) to analyze anonymous events pre-registration. Code to get is userID=="(anonymous)" & preevent ==0
-post_events <- baregister[which(baregister$userID=="(anonymous)" & baregister$preevent ==0),]
-postuser_allevents <- geordi[which(geordi$userID_a %in% geordi_summarypost$userID_a),]
+### Post-registration
+postreganon <- baregister[which(baregister$preevent == 0),]
+postreg_summary.meta <- ddply(postreganon, c("meta"), summarize,
+                         users = length(unique(userID_a)),
+                         prop_users = round(users/length(unique(postreganon$userID_a)),digits=4),
+                         count = length(userID_a),
+                         prop_count = round(count/dim(postreganon)[1],digits=4)
+)
+
+postreg_summary <- ddply(postreganon, c("meta","new.category"), summarize,
+                         users = length(unique(userID_a)),
+                         prop_users = round(users/length(unique(postreganon$userID_a)),digits=4),
+                         count = length(userID_a),
+                         prop_count = round(count/dim(postreganon)[1],digits=4)
+)
+
+q2.meta <- ggbarplot(subset(postreg_summary.meta, !meta %in% c("learn","classification")  ), 
+                     x = "meta", y = "users",fill = "meta", color = "meta",xlab="Meta-Interaction",
+                    palette = "jco", sorting = "descending",rotate = TRUE)
+q2.meta <- q2.meta + font("xy.text", size = 9) 
+
+q2 <- ggbarplot(subset(postreg_summary, !meta %in% c("learn","classification")  ), 
+                x = "new.category", y = "users",fill = "meta", color = "meta",xlab="Event", 
+                palette = "jco", sorting = "descending",rotate = TRUE)
+q2 <- q2 + font("xy.text", size = 9) 
+
+# Create visualizations fro pre-post
+
 ```
 
 ```{r}
-anon_prepost
+# Other analysis for pre-registration (user level) and session
 
-kable(prepostreg_summary, "html", 
-      caption = "Pre and Post registration anonymous activities", booktabs = T) %>%
-kable_styling()
+# Use dataset with session information.
+
+## Event diversity
+
+## Time to register
+
 ```
+
+
+## RQ2 & RQ3: Pre/Post registration anonymous traces
+```{r}
+# Pre-registration
+prereg_summary.meta
+q1.meta
+prereg_summary
+q1
+```
+
+* __Pre-registration traces__:  
+
+* __Time to register__: 
+
+* __Diversity of pre-registration activities__: 
+
+
+```{r}
+# Post-registration
+ggpar(q2.meta, legend.title = "Meta-interaction")
+postreg_summary.meta
+
+ggpar(q2, legend.title = "Meta-interaction")
+postreg_summary
+
+
+```
+* __Post-registration traces__:
+
+* __Time to signin__:
+
+* __Diversity of pre-registration activities__: 
 
 ```{r include=FALSE, warning=FALSE}
 #remove(anonymous_activities,anon_prepost)
+remove(m,p,geordi_visall,geordi_vislinked,joindate)
 ```
-
-## RQ2: Pre-registration anonymous traces
-```{r include=FALSE, warning=FALSE}
-# order pre-reg events for visualization
-prereg_summary <- prepostreg_summary[which(prepostreg_summary$preevent == "Pre-reg"), ] 
-
-prereg_summary$event <- factor(prereg_summary$new.category, levels=unique(as.character(prereg_summary$new.category)) )
-prereg_summary <- transform(prereg_summary, new.category=reorder(new.category, -count) ) 
-
-# Pre-registration activities
-anon_prereg <- ggplot(subset(prereg_summary, new.category != "classify"), aes(new.category, count)) +
-  geom_bar(stat = "identity", fill="dodgerblue4") + 
-  coord_flip() + 
-  labs(x="Event Category",y="Frequency") + 
-  theme(
-    axis.text.x=element_text(size=9),
-    axis.text.y=element_text(size=9)
-  )
-
-## get pre and post anonymous users
-geordi_summarypre$f <- as.Date(as.character(geordi_summarypre$first_classification), format="%Y-%m-%d")
-geordi_summarypre$a <- as.Date(as.character(geordi_summarypre$first_activitiy), format="%Y-%m-%d")
-
-geordi_summarypre$diff_in_days <- as.numeric(difftime(geordi_summarypre$f ,geordi_summarypre$a , units = c("days")))
-geordi_summarypre$f <- NULL
-geordi_summarypre$a <- NULL
-
-### use geordi_summarypre (summarized), pre_events (each pre-reg. record), and preuser_allevents(all events for users who contribute pre-anonymous events)
-```
-
-
-```{r}
-#grid.arrange(anon_prereg, anon_prereg, ncol = 2)
-
-anon_prereg
-
-kable(prereg_summary, "html", 
-      caption = "Gravity Spy Pre-registration activities", booktabs = T) %>%
-kable_styling()
-```
-
-### RQ 2 findings
-
-* __Pre-registration traces__: There are `r length(geordi_summarypre$userID_a)` volunteers who contributed anonymously before registering for an account. On average there were `r round(mean(geordi_summarypre$pre_reg_anon_activities), digits = 2)`  and a standard deviation of `r round(sd(geordi_summarypre$pre_reg_anon_activities), digits = 2)` events, including classifying. Removing classifying events there were on average `r round(mean(geordi_summarypre$nonclassification_pre), digits = 2)` and a standard deviation of `r round(sd(geordi_summarypre$nonclassification_pre), digits = 2)` events. 
-
-```{r include=FALSE, warning=FALSE}
-
-```
-* __Time to register when contributing anonymously__: There are `r length(which(geordi_summarypre$diff_in_days == 0))` (91%) volunteers who registered on the first day they joined the project, `r length(which(geordi_summarypre$diff_in_days > 0))` registered after this time with `r length(which(geordi_summarypre$diff_in_days == 1))` during the next day. 
-
-```{r}
-# Histogram of time to register
-```
-
-
-```{r include=FALSE, warning=FALSE}
-pre_events_summary <- ddply(pre_events, c("userID_a"), summarize,
-                            events = length(userID_a),
-                            cat_types_count = length(unique(new.category))
-)
-geordi_summarypre <- merge(geordi_summarypre,pre_events_summary, by = "userID_a", all.x = TRUE)
-remove(pre_events_summary)
-
-geordi_summarypre.cast <- dcast(pre_events, userID_a~new.category)
-
-```
-* __Diversity of pre-registration activities__: 
-
-```{r}
-cor.test(geordi_summarypre$events, geordi_summarypre$cat_types)
-
-```
-
+`
 ***** 
-
-## RQ3: Post-registration anonymous traces
-```{r, include=FALSE, warning=FALSE}
-# order pre-reg events for visualization
-postreg_summary <- prepostreg_summary[which(prepostreg_summary$preevent == "Post-reg"), ] 
-postreg_summary$event <- factor(postreg_summary$new.category, levels=unique(as.character(postreg_summary$new.category)) )
-postreg_summary <- transform(postreg_summary, new.category=reorder(new.category, -count) ) 
-
-# Post-registration activities
-anon_postreg <- ggplot(subset(postreg_summary, new.category != "classify"), aes(new.category, count)) +
-  geom_bar(stat = "identity", fill="dodgerblue4") + 
-  coord_flip() + 
-  labs(x="Event Category",y="Frequency") + 
-  theme(
-    axis.text.x=element_text(size=9),
-    axis.text.y=element_text(size=9)
-  )
-
-geordi_summarypost$f <- as.Date(as.character(geordi_summarypost$first_classification), format="%Y-%m-%d")
-geordi_summarypost$a <- as.Date(as.character(geordi_summarypost$first_activitiy), format="%Y-%m-%d")
-
-geordi_summarypost$diff_in_days <- as.numeric(difftime(geordi_summarypost$f ,geordi_summarypost$a , units = c("days")))
-geordi_summarypost$f <- NULL
-geordi_summarypost$a <- NULL
-
-### use geordi_summarypost (summarized) post_events (each post-reg. record), and postuser_allevents(all events for users who contribute post-anonymous events)
-
-# Essentially are there behavioral differnces
-
-
-```
-
-```{r}
-grid.arrange(anon_postreg, anon_postreg, ncol = 2)
-
-kable(postreg_summary, "html", 
-      caption = "Gravity Spy Pre-registration activities", booktabs = T) %>%
-kable_styling()
-```
-
-### Summary of RQ3 results
-Here we review the post-registration traces of volunteers who we were able to link anonymous traces to their user accounts.
-
-* unordered list
-
-```{r include=FALSE, warning=FALSE}
-#remove(anon_postreg,postreg_summary)
-```
-
-*****
 
 ## RQ4: Participation intention
 ```{r, include=FALSE, warning=FALSE}
-# Use dataset with session information.
 geordi2 <- read_csv("~/Dropbox/INSPIRE/Papers & Presentations/Anonymous Work (Journal)/Data/Session/geordi-session-added.csv")
 colnames(geordi2)[22] <- "Sequence"
 geordi2[c(1,2,4,6,9,11:14,18:20)] <- NULL
@@ -529,6 +483,10 @@ geordi2_summary <- ddply(geordi2, c("userID_a","Session"), summarize,
                          anonclassifications = length(which(new.category %in% c("classify") & userID == "(anonymous)")),
                          total_classifications = length(which(new.category %in% c("classify")))
                          )
+geordi2_summary$totaltask <- geordi2_summary$task + geordi2_summary$anontask
+geordi2_summary$totalview <- geordi2_summary$viewing + geordi2_summary$anonviewing
+geordi2_summary$totalcommunity <- geordi2_summary$community + geordi2_summary$anoncommunity
+
 
 geordi2_summary$anontype <- as.factor(ifelse(geordi2_summary$anonviewing > 0 | geordi2_summary$anonsocialize > 0 |
                                       geordi2_summary$anonlearn > 0 | geordi2_summary$anoncommunity > 0 |
@@ -595,7 +553,7 @@ geordi2_summary_anon <- ddply(geordi2_lateranon, c("Session"), summarize,
                           anontask = length(which(new.category %in% c(
                            "examine-image","image metadata","open-field-guide")))
                          )
-geordi2_summary_anon$Anon.Type <- "Anon Contributor"
+geordi2_summary_anon$Anon.Type <- "AC"
 
 geordi2_summary_nonanon <- ddply(geordi2_laternonanon, c("Session"), summarize,
                          users = length(unique(userID_a)),
@@ -617,7 +575,7 @@ geordi2_summary_nonanon <- ddply(geordi2_laternonanon, c("Session"), summarize,
                           anontask = length(which(new.category %in% c(
                            "examine-image","image metadata","open-field-guide")))
                          )
-geordi2_summary_nonanon$Anon.Type <- "Non-Anon Contributor"
+geordi2_summary_nonanon$Anon.Type <- "NAC"
 geordi2_summary_future <- rbind(geordi2_summary_nonanon,geordi2_summary_anon)
 
 ### Get data by user
@@ -641,10 +599,15 @@ geordi2_user_summary_anon <- ddply(geordi2_lateranon, c("userID_a"), summarize,
                           anontask = length(which(new.category %in% c(
                            "examine-image","image metadata","open-field-guide")))
                          )
-geordi2_user_summary_anon$Anon.Type <- "Anon Contributor"
+geordi2_user_summary_anon$Anon.Type <- "AC"
 geordi2_user_summary_anon$Task.Type <- ifelse(geordi2_user_summary_anon$userID_a %in% tasklist.a,"Task","No Task")
-geordi2_user_summary_anon$Community.Type <- ifelse(geordi2_user_summary_anon$userID_a %in% community.a,"Community","No Community")
-geordi2_user_summary_anon$Viewing.Type <-  ifelse(geordi2_user_summary_anon$userID_a %in% view.a,"Viewing","No Viewing")
+geordi2_user_summary_anon$Task.Type2 <- paste(geordi2_user_summary_anon$Anon.Type, geordi2_user_summary_anon$Task.Type, sep = "-")
+
+geordi2_user_summary_anon$Community.Type <- ifelse(geordi2_user_summary_anon$userID_a %in% community.a,"Comm.","No Comm.")
+geordi2_user_summary_anon$Community.Type2 <- paste(geordi2_user_summary_anon$Anon.Type, geordi2_user_summary_anon$Community.Type, sep = "-")
+
+geordi2_user_summary_anon$Viewing.Type <-  ifelse(geordi2_user_summary_anon$userID_a %in% view.a,"View","No View")
+geordi2_user_summary_anon$Viewing.Type2 <- paste(geordi2_user_summary_anon$Anon.Type, geordi2_user_summary_anon$Viewing.Type, sep = "-")
 
 geordi2_user_summary_nonanon <- ddply(geordi2_laternonanon, c("userID_a"), summarize,
                         tenure_begin = min(time),
@@ -667,144 +630,189 @@ geordi2_user_summary_nonanon <- ddply(geordi2_laternonanon, c("userID_a"), summa
                            "examine-image","image metadata","open-field-guide")))
                          )
 
-geordi2_user_summary_nonanon$Anon.Type <- "Non-Anon Contributor"
+geordi2_user_summary_nonanon$Anon.Type <- "NAC"
 geordi2_user_summary_nonanon$Task.Type <- ifelse(geordi2_user_summary_nonanon$userID_a %in% tasklist.n,"Task","No Task")
-geordi2_user_summary_nonanon$Community.Type <- ifelse(geordi2_user_summary_nonanon$userID_a %in% community.n,"Community","No Community")
-geordi2_user_summary_nonanon$Viewing.Type <-  ifelse(geordi2_user_summary_nonanon$userID_a %in% view.n,"Viewing","No Viewing")
+geordi2_user_summary_nonanon$Task.Type2 <- paste(geordi2_user_summary_nonanon$Anon.Type, geordi2_user_summary_nonanon$Task.Type,sep="-")
+
+geordi2_user_summary_nonanon$Community.Type <- ifelse(geordi2_user_summary_nonanon$userID_a %in% community.n,"Comm.","No Comm.")
+geordi2_user_summary_nonanon$Community.Type2 <- paste(geordi2_user_summary_nonanon$Anon.Type, geordi2_user_summary_nonanon$Community.Type,sep="-")
+
+geordi2_user_summary_nonanon$Viewing.Type <-  ifelse(geordi2_user_summary_nonanon$userID_a %in% view.n,"View","No View")
+geordi2_user_summary_nonanon$Viewing.Type2 <- paste(geordi2_user_summary_nonanon$Anon.Type, geordi2_user_summary_nonanon$Viewing.Type,sep="-")
+
+
 geordi2_user_summary_future <- rbind(geordi2_user_summary_nonanon,geordi2_user_summary_anon)
 
 remove(geordi2_summary_nonanon,geordi2_laternonanon,nonanonuserlist,geordi2_summary_anon,geordi2_lateranon,anonuserlist,geordi2_user_summary_nonanon,geordi2_user_summary_anon)
 ```
 
+#### Analysis: First session differences between anon/non-anon contributors
 ```{r }
-# Still contributing
-ggline(subset(geordi2_summary_future, Session <= 10), x = "Session", y = "proportion", 
+# Still contributing after first session. Line represents those who contributed anonymously and non-anonymouly in first session
+l<-ggline(subset(geordi2_summary_future, Session <= 15), x = "Session", y = "proportion", 
         #add = c("mean_se", "jitter"),
         ylab = "Proportion of Volunteers",
         color = "Anon.Type", palette = "jco")
+ggpar(l, legend.title = "Contributor Type")
+# Do anonymous first sessions differ in behaviors from registered sessions. What portion of volunteers do each of the activities. Is one activity associated with greater number of classifications
+```
 
+* __Portions of session contributions__: Similar proportions of volunteers who were anonymous/non-anonymous during their first sessionsstay around and contribute after their first session.
+
+* __Different behaviors__: Our initial assumption is that the group of volunteers are inherently different from the population of volunteers who contribute registered from the beginning. We ask are there different variables that will determine whether anon/non-anon contributors differ. Analyzing their first session activities using 
+
+#### Analysis: Do anonymous contributors differ from non-anon contributors in future participation 
+```{r }
 # boxplot of future classifications
 geordi2_user_summary_future$classifications.log <- log(geordi2_user_summary_future$classifications)
 geordi2_user_summary_future$classifications.log[geordi2_user_summary_future$classifications.log < 1] <- 0
 
 my_comparisons <- list( c("Non-Anon Contributor", "Anon Contributor"))
-ggerrorplot(geordi2_user_summary_future, x = "Anon.Type", y = "classifications.log",
+z <- ggboxplot(geordi2_user_summary_future, x = "Anon.Type", y = "classifications",
             desc_stat = "mean", color = "Anon.Type", 
-            add="dotplot", palette = "jco",
+            ylab="Future Classifications(log)",xlab ="First Session Type",
+            #add="dotplot", 
+            palette = "jco",
             add.params = list(binwidth = 0.1, dotsize = 0.5)
             )+ 
   stat_compare_means(comparisons = my_comparisons)+ # Add pairwise comparisons p-value
-  stat_compare_means(label.y = 15) 
+  stat_compare_means(label.y = 20000) 
+
+compare_means(classifications ~ Anon.Type,  data = geordi2_user_summary_future)
+wilcox.test(classifications ~ Anon.Type,  data = geordi2_user_summary_future)
+ggpar(z,legend = "none")
+
 
 # Compare task
 geordi2_user_summary_future$task.log <- log(geordi2_user_summary_future$task)
 geordi2_user_summary_future$task.log[geordi2_user_summary_future$task.log < 1] <- 0
 
-my_comparisons.task <- list( c("Non-Anon Contributor", "Anon Contributor"),c("Task","No Task"))
-a <- ggerrorplot(geordi2_user_summary_future, x = "Task.Type", y = "task.log",
+my_comparisons.task <- list(c("AC-Task","NAC-Task"),c("AC-No Task","NAC-No Task"))
+a <- ggboxplot(geordi2_user_summary_future, x = "Task.Type2", y = "task",
             desc_stat = "mean_sd", color = "Anon.Type",
-            add="dotplot", palette = "jco", ylab = "Future Task (log)",
-            xlab = "Task in Session 1",
-            add.params = list(binwidth = 0.1, dotsize = 0.5))
-a + stat_compare_means(comparisons = my_comparisons.task, label.y = c(29, 35, 40))+
-  stat_compare_means(label.y = 10)
+            #add="dotplot", 
+            add = "jitter",
+            palette = "jco", ylab = "Future Task Interactions",
+            xlab = "Task Interactions in Session 1"
+           # add.params = list(binwidth = 0.1, dotsize = 0.5)
+           )
+
+compare_means(task ~ Task.Type2,  data = geordi2_user_summary_future)
+wilcox.test(task~Task.Type2, data = geordi2_user_summary_future,subset = Task.Type2 %in% c("AC-Task","NAC-Task"))  # 
+
+a + stat_compare_means(comparisons = my_comparisons.task)+
+  stat_compare_means(label.y = 10) + font("xy.text", size = 9) +
+  rotate_x_text(45)
+
+compare_means(classifications ~ Task.Type2,  data = geordi2_user_summary_future)
+
 
 # Compare viewing
 geordi2_user_summary_future$view.log <- log(geordi2_user_summary_future$viewing)
 geordi2_user_summary_future$view.log[geordi2_user_summary_future$view.log < 1] <- 0
 
-p <- ggerrorplot(geordi2_user_summary_future, x = "Viewing.Type", y = "view.log",
+my_comparisons.viewing <- list(c("AC-No View","NAC-No View"),c("AC-View","NAC-View"))
+p <- ggboxplot(geordi2_user_summary_future, x = "Viewing.Type2", y = "viewing",
             desc_stat = "mean_sd", color = "Anon.Type",
-            add="dotplot", palette = "jco", ylab = "Future Viewing (log)",
-            xlab = "Viewing in Session 1",
-            add.params = list(binwidth = 0.1, dotsize = 0.9))
-p + stat_compare_means(label = "p.format")
+            #add="dotplot", 
+            palette = "jco", ylab = "Future Viewing Interactions",
+            xlab = "Viewing Interactions in Session 1",
+                        add = "jitter"
+            #add.params = list(binwidth = 0.1, dotsize = 0.9)
+            )
+compare_means(viewing ~ Viewing.Type2,  data = geordi2_user_summary_future)
+compare_means(classifications ~ Viewing.Type2,  data = geordi2_user_summary_future)
+
+p + stat_compare_means(comparisons = my_comparisons.viewing)+
+  stat_compare_means(label.y = 9000) + font("xy.text", size = 9) +
+  rotate_x_text(45)
            
 # Compare community
 geordi2_user_summary_future$community.log <- log(geordi2_user_summary_future$community)
 geordi2_user_summary_future$community.log[geordi2_user_summary_future$community.log < 1] <- 0
 
-m <- ggerrorplot(geordi2_user_summary_future, x = "Community.Type", y = "community.log",
-            desc_stat = "mean_sd", color = "Community.Type",
-            add="dotplot", palette = "jco", ylab = "Future Community (log)",
-            xlab = "Community in Session 1",facet.by = "Anon.Type",
-            add.params = list(binwidth = 0.1, dotsize = 0.9))
-m + stat_compare_means(label = "p.format")
+my_comparisons.community <- list(c("AC-No Comm.","NAC-No Comm."),c("AC-Comm.","NAC-Comm."))
+m <- ggboxplot(geordi2_user_summary_future, x = "Community.Type2", y = "community",
+             desc_stat = "mean_sd", color = "Anon.Type",
+            #add="dotplot", 
+            add = "jitter",
+            palette = "jco", ylab = "Future Community Interactions",
+            xlab = "Community Interactions in Session 1"
+            #add.params = list(binwidth = 0.1, dotsize = 0.9)
+            )
+
+compare_means(community ~ Community.Type2,  data = geordi2_user_summary_future)
+compare_means(classifications ~ Community.Type2,  data = geordi2_user_summary_future)
+
+m + stat_compare_means(comparisons = my_comparisons.community)+
+  stat_compare_means(label.y = 1500) + font("xy.text", size = 9) +
+  rotate_x_text(45)
 
 ```
 
+* __Relationship to first session contributions and future contributions__:  
 
-```{r }
-# Comparing for those who contribute anonymously (task,social, and project) (type = 1) whether they do more/less classifying than those who logged-in sessions (0)
-
-## does anonymous contribution lead to more classifications
-tapply(geordi2_summary_first$total_classifications,geordi2_summary_first$anontype, FUN = median)
- wilcox.test(geordi2_summary_first$total_classifications~geordi2_summary_first$anontype)
-## users who contribute anonymously do more classifications in their first session (are they more involved in other interactions?)
-tapply(geordi2_summary_first$totalinteraction,geordi2_summary_first$anontype, FUN = mean)
-wilcox.test(geordi2_summary_first$totalinteraction~geordi2_summary_first$anontype) # contribute same amount of interactions but sig. (strange)
-
-### TASK
-task <- geordi2_summary[which(geordi2_summary$tasktype =="1"),]
-# More Classifying
-tapply(task$total_classifications,task$anontype, FUN = mean)
-wilcox.test(task$total_classifications~task$anontype)
-# More Task
-tapply(task$task,task$anontype, FUN = mean)
-wilcox.test(task$task~task$anontype)
-remove(task)
-
-### VIEWING
-viewing <- geordi2_summary[which(geordi2_summary$viewingtype =="1"),]
-# More Classifying
-tapply(viewing$total_classifications,viewing$anontype, FUN = median)
-wilcox.test(viewing$total_classifications~viewing$anontype)
-# More Viewing
-tapply(viewing$viewing,viewing$anontype, FUN = median)
-wilcox.test(viewing$viewing~viewing$anontype)
-remove(viewing)
-
-### Community
-community <- geordi2_summary[which(geordi2_summary$communitytype =="1"),]
-# More Classifying
-tapply(community$total_classifications,community$anontype, FUN = median)
-wilcox.test(community$total_classifications~community$anontype)
-# More Community
-tapply(community$community,community$anontype, FUN = median)
-wilcox.test(community$community~community$anontype)
-remove(community)
-```
-
-### Summary of RQ4 results
-
-* unordered list
-    + sub-item 1 
-    + sub-item 2 
-        - sub-sub-item 1  
-        
-        
 
 *****
-
 ## RQ5. Participation around signing in for known volunteers
+
+#### Analysis: What users do immediately following logging-in/creating an account 
 ```{r, include=FALSE, warning=FALSE}
 # Sessions after having an account
-geordi2_summary_post <- geordi2_summary[which(geordi2_summary$Session > 1 & geordi2_summary$anontype == "1"),]
-geordi2_summary_post$Session <- as.factor(geordi2_summary_post$Session)
+nextact <- ddply(geordi2, c("userID_a","Session"),summarize, 
+                      maxseq = max(Sequence[which(userID == "(anonymous)")])+1 # get the max seq. number of the anonymous activity and add 1 to get the number to get the next activity
+                      )
+nextact <- nextact[which(nextact$maxseq !=  -Inf),]
 
-#There are 335 unique volunteers and 864 sessions
+library(sqldf)
+nextactivity <- sqldf("select * from geordi2, nextact where geordi2.userID_a = nextact.userID_a and geordi2.Sequence = nextact.maxseq and geordi2.Session = nextact.Session") # Get the next activity having the same criteria as above and also belonging to the same session
+
+nextactivity$meta[nextactivity$new.category %in% c("examine-image","image metadata","open-field-guide")] <- "task"
+nextactivity$meta[nextactivity$new.category %in% c("talk-bugs-view","talk-chat-view", "talk-help-view",                                 
+                                "talk-science-view","talk-notes-view","talk-view","talk-newglitches-view",
+                                "talk-collections-view")] <- "viewing"
+nextactivity$meta[nextactivity$new.category %in% c("post-comment","edit-post","delete-post","private-message",
+                                       "update-comment","create-discussion")] <- "socialize"
+nextactivity$meta[nextactivity$new.category %in% c("tutorial", "mini-course")] <- "learn"
+nextactivity$meta[nextactivity$new.category %in% c( "view-profile-author","gs-about","gs-collections","view-profile-author"
+                                        ,"gs-favorites","keyword search","hashtag-sidebar","view-member-profile")] <- "community"
+nextactivity$meta[nextactivity$new.category %in% c("like-post", "unfavorite", "report-post","subscribe","click-favorite")] <- "impressions"
+nextactivity$meta[nextactivity$new.category %in% c("classify")] <- "classification"
+
+
+afterlogin <- ddply(nextactivity, c("meta","new.category"), summarize,
+                         users = length(unique(userID_a)),
+                         prop_users = round(users/length(unique(nextactivity$userID_a)),digits=4),
+                         count = length(userID_a),
+                         prop_count = round(count/dim(nextactivity)[1],digits=4)
+)
+
+q5 <- ggbarplot(subset(afterlogin,meta != "classification"), 
+                     x = "new.category", y = "users",fill = "meta", color = "meta",xlab="Event",
+                    palette = "jco", sorting = "descending",rotate = TRUE,sort.by.groups = TRUE)
+q5<- q5 + font("xy.text", size = 9)
+
+
+q5.meta <- ggbarplot(subset(afterlogin,meta != "classification"), 
+                     x = "meta", y = "users",fill = "meta", color = "meta",xlab="Meta-Interaction",
+                    palette = "jco", sort.val = "desc",rotate = TRUE, sort.by.groups = TRUE)
+q5.meta <- q5.meta + font("xy.text", size = 9)
+remove(afterlogin,nextact)
 ```
 
 ```{r}
 
+table(nextactivity$new.category)
+ggpar(q5, legend.title = "Meta Type")
+
+table(nextactivity$meta)
+ggpar(q5.meta, legend.title = "Meta Type")
+
+
+
 ```
 
+* __After Logging In__: Most common activity is classifying (system prompt after 2 classifications when anonymous). 
 
-### Summary of RQ5 results
-
-* unordered list
-    + sub-item 1 
-    + sub-item 2 
-        - sub-sub-item 1  
         
 
