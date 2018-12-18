@@ -33,7 +33,7 @@ geordi <- geordi[,-c(3,8,10:17,19)]
 
 # First logged in as indicated by first classification with a username
 joindate <- ddply(geordi,"userID",summarize,
-                  firstclass = min(time))
+                  firstclass = min(time[(which(new.category == "classify"))]))
 joindate <- joindate[which(joindate$userID!="(anonymous)"),]
 
 #
