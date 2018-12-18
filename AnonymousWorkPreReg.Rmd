@@ -18,7 +18,7 @@ library(kableExtra)
 library(gridExtra)
 library(corrplot)
 library(ggpubr)
-
+library(sqldf)
 
 ```
 
@@ -303,15 +303,19 @@ ggpar(l, legend.title = "Meta-interaction")
 * __Maintaining anonyomity__:Not logging in is a much greater phenomenon than previously thought. We can statistically determine whether first sessions are longer (more diverse) than those first sessions of volunteers who login. Appears to be advanced volunteers engaging in advanced work... e.g., liking posts.
  
 #### Analysis: Users who never classified, but explored the system. What events did they execute? 
+
 ```{r include=FALSE, warning=FALSE}
 nonclassusers <- joindate$userID[!(joindate$userID %in% geordi_summary$userID_a)] #304 not classifying...registered and explored
 geordi_regnonclass <-  geordi_org[which(geordi_org$userID %in% nonclassusers),]
 remove(nonclassusers)
 
-#Use geordi_regnonclass to explore non-classifying volunteers. 
+#Use geordi_regnonclass to explore non-classifying volunteers. These data have some of the traces we weren't interested in examining.
 ```
 
 * __Perpetual exploring__: The volunteers who only explored the system but never submitted a classification. 
+```{r}
+# Results
+```
 
 *****  
 
@@ -386,10 +390,7 @@ q2 <- q2 + font("xy.text", size = 9)
 
 ## Event diversity
 
-## Time to register
-
 ```
-
 
 ## RQ2 & RQ3: Pre/Post registration anonymous traces
 ```{r}
@@ -398,15 +399,74 @@ prereg_summary.meta
 q1.meta
 prereg_summary
 q1
+#remove(prereg_summary.meta,q1.meta,prereg_summary,q1)
 ```
 
-* __Pre-registration traces__:  
+* __Pre-registration traces__: Users typically did x before creating an account
 
-* __Time to register__: 
+* __Post-registration traces__: Users typically did x before loging-in with their account.
+
+#### Analysis: How much time being anonymous 
+```{r, include=FALSE, warning=FALSE}
+geordi2 <- read_csv("~/Dropbox/INSPIRE/Papers & Presentations/Anonymous Work (Journal)/Data/Session/geordi-session-added.csv")
+colnames(geordi2)[22] <- "Sequence"
+geordi2[c(1,2,4,6,9,11:14,18:20)] <- NULL
+
+
+geordi2anon <- geordi2[which(geordi2$userID == "(anonymous)"),]
+geordi2anon$preevent <- as.factor(geordi2anon$preevent)
+
+geordi2anon.summary <- ddply(geordi2anon, c("userID_a","Session","preevent"),summarize,
+                                    activities = length(new.category),
+                                    mintime = min(time),
+                                    maxtime = max(time),
+                                    timespent = as.numeric(difftime(maxtime,mintime, units = "mins"))
+                                            )
+geordi2anon.summary$timespent2 <- log(geordi2anon.summary$timespent)
+
+aa <- ggdensity(subset(geordi2anon.summary,geordi2anon.summary$preevent =="1" & geordi2anon.summary$timespent >= 1),
+   x = "timespent2",
+   add = "mean", rug = TRUE,
+    xlab = "Mins. to register (log)",
+   color = "#E7B800", 
+   fill = "#E7B800")
+   #palette = c("#00AFBB", "#E7B800"))
+
+```
+
+* __Time to register: Parsing out those who contributed anonymously for a long period we see most register on the same day they began contributing. 
+
+```{r}
+mean(geordi2anon.summary$timespent[which(geordi2anon.summary$preevent =="1")])
+sd(geordi2anon.summary$timespent[which(geordi2anon.summary$preevent =="1")])
+
+aa
+
+
+```
+
+```{r, include=FALSE, warning=FALSE}
+bb <- ggdensity(subset(geordi2anon.summary,geordi2anon.summary$preevent =="0" & geordi2anon.summary$timespent >= 1),
+   x = "timespent2",
+   add = "mean", rug = TRUE,
+    xlab = "Mins. to login (log)",
+   color = "#E7B800", 
+   fill = "#E7B800")
+   #palette = c("#00AFBB", "#E7B800"))
+
+```
+
+* __Time to signin: 
+```{r}
+bb
+
+mean(geordi2anon.summary$timespent[which(geordi2anon.summary$preevent =="0")])
+sd(geordi2anon.summary$timespent[which(geordi2anon.summary$preevent =="0")])
+
+```
+
 
 * __Diversity of pre-registration activities__: 
-
-
 ```{r}
 # Post-registration
 ggpar(q2.meta, legend.title = "Meta-interaction")
@@ -432,9 +492,6 @@ remove(m,p,geordi_visall,geordi_vislinked,joindate)
 
 ## RQ4: Participation intention
 ```{r, include=FALSE, warning=FALSE}
-geordi2 <- read_csv("~/Dropbox/INSPIRE/Papers & Presentations/Anonymous Work (Journal)/Data/Session/geordi-session-added.csv")
-colnames(geordi2)[22] <- "Sequence"
-geordi2[c(1,2,4,6,9,11:14,18:20)] <- NULL
 
 # relationship between pre-registration and future contribution intention. Look at classification only, all, non-classifications
 
@@ -643,7 +700,7 @@ geordi2_user_summary_nonanon$Viewing.Type2 <- paste(geordi2_user_summary_nonanon
 
 geordi2_user_summary_future <- rbind(geordi2_user_summary_nonanon,geordi2_user_summary_anon)
 
-remove(geordi2_summary_nonanon,geordi2_laternonanon,nonanonuserlist,geordi2_summary_anon,geordi2_lateranon,anonuserlist,geordi2_user_summary_nonanon,geordi2_user_summary_anon)
+#remove(geordi2_summary_nonanon,geordi2_laternonanon,nonanonuserlist,geordi2_summary_anon,geordi2_lateranon,anonuserlist,geordi2_user_summary_nonanon,geordi2_user_summary_anon)
 ```
 
 #### Analysis: First session differences between anon/non-anon contributors
@@ -760,25 +817,25 @@ m + stat_compare_means(comparisons = my_comparisons.community)+
 ```{r, include=FALSE, warning=FALSE}
 # Sessions after having an account
 nextact <- ddply(geordi2, c("userID_a","Session"),summarize, 
-                      maxseq = max(Sequence[which(userID == "(anonymous)")])+1 # get the max seq. number of the anonymous activity and add 1 to get the number to get the next activity
+                      maxseq = (max(Sequence[which(userID == "(anonymous)")])+1) # get the max seq. number of the anonymous activity and add 1 to get the number to get the next activity
                       )
-nextact <- nextact[which(nextact$maxseq !=  -Inf),]
+nextact <- nextact[which(nextact$maxseq != Inf),]
 
-library(sqldf)
+
 nextactivity <- sqldf("select * from geordi2, nextact where geordi2.userID_a = nextact.userID_a and geordi2.Sequence = nextact.maxseq and geordi2.Session = nextact.Session") # Get the next activity having the same criteria as above and also belonging to the same session
 
 nextactivity$meta[nextactivity$new.category %in% c("examine-image","image metadata","open-field-guide")] <- "task"
-nextactivity$meta[nextactivity$new.category %in% c("talk-bugs-view","talk-chat-view", "talk-help-view",                                 
+nextactivity$meta[nextactivity$new.category %in% c("talk-bugs-view","talk-chat-view", "talk-help-view",
                                 "talk-science-view","talk-notes-view","talk-view","talk-newglitches-view",
                                 "talk-collections-view")] <- "viewing"
 nextactivity$meta[nextactivity$new.category %in% c("post-comment","edit-post","delete-post","private-message",
                                        "update-comment","create-discussion")] <- "socialize"
 nextactivity$meta[nextactivity$new.category %in% c("tutorial", "mini-course")] <- "learn"
-nextactivity$meta[nextactivity$new.category %in% c( "view-profile-author","gs-about","gs-collections","view-profile-author"
-                                        ,"gs-favorites","keyword search","hashtag-sidebar","view-member-profile")] <- "community"
+nextactivity$meta[nextactivity$new.category %in% c( 
+                "view-profile-author","gs-about","gs-collections","view-profile-author","gs-favorites","keyword 
+                search","hashtag-sidebar","view-member-profile")] <- "community"
 nextactivity$meta[nextactivity$new.category %in% c("like-post", "unfavorite", "report-post","subscribe","click-favorite")] <- "impressions"
 nextactivity$meta[nextactivity$new.category %in% c("classify")] <- "classification"
-
 
 afterlogin <- ddply(nextactivity, c("meta","new.category"), summarize,
                          users = length(unique(userID_a)),
@@ -792,10 +849,9 @@ q5 <- ggbarplot(subset(afterlogin,meta != "classification"),
                     palette = "jco", sorting = "descending",rotate = TRUE,sort.by.groups = TRUE)
 q5<- q5 + font("xy.text", size = 9)
 
-
 q5.meta <- ggbarplot(subset(afterlogin,meta != "classification"), 
                      x = "meta", y = "users",fill = "meta", color = "meta",xlab="Meta-Interaction",
-                    palette = "jco", sort.val = "desc",rotate = TRUE, sort.by.groups = TRUE)
+                    palette = "jco",rotate = TRUE, sort.by.groups = TRUE)
 q5.meta <- q5.meta + font("xy.text", size = 9)
 remove(afterlogin,nextact)
 ```
@@ -806,9 +862,7 @@ table(nextactivity$new.category)
 ggpar(q5, legend.title = "Meta Type")
 
 table(nextactivity$meta)
-ggpar(q5.meta, legend.title = "Meta Type")
-
-
+ggpar(q5.meta, legend.title = "Meta Type") 
 
 ```
 
