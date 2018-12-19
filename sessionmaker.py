@@ -7,12 +7,12 @@ from dateutil.parser import parse
 
 ############## Import Raw datafile ##############
 #%cd "/Users/coreyjackson/Dropbox/INSPIRE/Papers & Presentations/Anonymous Work/Analysis/Higgs Hunters/Archive"
-raw_data = pd.read_csv('geordiIP_nolink.csv') # CHANGE NAME OF .CSV FILE
+raw_data = pd.read_csv('geordi2.csv') # CHANGE NAME OF .CSV FILE
 anon_population =raw_data 
 
 anon_population['datetime'] = pd.to_datetime(anon_population['time'])
-anon_population = anon_population.sort_values(['clientIP','datetime'], ascending=[1, 1])
-anon_population['same_name'] = anon_population['clientIP'].shift() == anon_population['clientIP']
+anon_population = anon_population.sort_values(['userID_a','datetime'], ascending=[1, 1])
+anon_population['same_name'] = anon_population['userID_a'].shift() == anon_population['userID_a']
 anon_population['datetime2'] = anon_population['datetime'] 
 anon_population.datetime2 = anon_population.datetime2.shift(1)
 anon_population['datetime'] = pd.to_datetime(anon_population['datetime'])
@@ -37,7 +37,7 @@ def previous_and_next(some_iterable):
     return izip(prevs, items, nexts)
 
 # Count through the number of annotation by ip address
-ip = anon_population['clientIP']
+ip = anon_population['userID_a']
 classification_no = []
 for previous, item, nxt in previous_and_next(ip):
   if item == previous:  	
@@ -51,7 +51,7 @@ anon_population['Classifications'] = classification_no
 
 # Loop to iterate and create session variable by ip address
 time = anon_population['Time_Seconds']
-ip = anon_population['clientIP']
+ip = anon_population['userID']
 same = anon_population['same_name']
 session_no = []
 session = 1
@@ -121,4 +121,4 @@ anon_population['Session'] = session_no
 
 
 # Export dataframe
-anon_population.to_csv('geordiIP_nolinksession.csv') #Change File name to project name. 
+anon_population.to_csv('geordiIP_linksession.csv') #Change File name to project name. 

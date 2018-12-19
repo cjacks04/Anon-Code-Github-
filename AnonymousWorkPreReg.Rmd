@@ -25,15 +25,12 @@ library(sqldf)
 ```{r,  include=FALSE, warning=FALSE}
 # import datasets 
 geordi <- read_csv("~/Dropbox/INSPIRE/Data/System dumps/geordi-1-5-17.csv") # The raw geordi dataet
-geordi_org <- read_csv("~/Dropbox/INSPIRE/Data/System dumps/geordi-1-5-17.csv") # The raw geordi dataet
-
-
-# remove unnecessary columns 
-geordi <- geordi[,-c(3,8,10:17,19)]
+geordi <- geordi[,-c(3,8,10:17,19)] # remove unnecessary columns 
+# max time for record "2017-04-28 15:00:16 UTC"
 
 # First logged in as indicated by first classification with a username
 joindate <- ddply(geordi,"userID",summarize,
-                  firstclass = min(time[(which(new.category == "classify"))]))
+                  firstclass =min(time[userID != "(anonymous)"])) 
 joindate <- joindate[which(joindate$userID!="(anonymous)"),]
 
 #
@@ -78,9 +75,29 @@ events <- read_csv("~/Dropbox/INSPIRE/Papers & Presentations/Anonymous Work (Jou
 events <- events[which(!is.na(events$new.category)),]
 # merge names of events
 geordi <- merge(geordi,events, by="new.categories", all.x=TRUE)
+geordi <- geordi[,-c(1,3,6:9,11,12)] # remove unnecessary columns 
 
-# create the original dataset
 
+# import comments from system logs
+comments <- read_csv("~/Dropbox/INSPIRE/Data/System dumps/GS Comments/gravity-spy-comments_2018-05-23.csv") 
+comments <- comments[which(comments$comment_created_at <= "2017-04-28"),]
+comments <- comments[,-c(1:4,6:11,13)] # remove unnecessary columns 
+names(comments)[2] <- "userID_a"
+comments$clientIP <- ""
+comments$userID <- comments$userID_a
+comments$new.category <- paste0("post-",comments$board_title)
+comments$board_title <- NULL
+names(comments)[2] <- "time"
+
+comments <- comments[,c(3,2,4,1,5)]
+# remove post comment event  
+geordi <- geordi[which(geordi$new.category != "post-comment"),]
+geordi <- rbind(geordi,comments)
+remove(comments)
+# remove comment category and replace with actual comment posts from system logs
+
+# reproduce the original dataset
+geordi_org <- geordi
 # Change experiment classificaions to classify
 geordi$new.category[geordi$type.x %in% c("classificationStart")] <- "classify"
 
@@ -99,8 +116,9 @@ geordi$meta[geordi$new.category %in% c("examine-image","image metadata","open-fi
 geordi$meta[geordi$new.category %in% c("talk-bugs-view","talk-chat-view", "talk-help-view",                                 
                                 "talk-science-view","talk-notes-view","talk-view","talk-newglitches-view",
                                 "talk-collections-view")] <- "viewing"
-geordi$meta[geordi$new.category %in% c("post-comment","edit-post","delete-post","private-message",
-                                       "update-comment","create-discussion")] <- "socialize"
+geordi$meta[geordi$new.category %in% c("post-Bug reports","edit-post","delete-post","private-message",
+                                       "update-comment","create-discussion"," post-Chat","post-Collections",
+                                       "post-Help","post-Notes","post-Science")] <- "socialize"
 geordi$meta[geordi$new.category %in% c("tutorial", "mini-course")] <- "learn"
 geordi$meta[geordi$new.category %in% c( "view-profile-author","gs-about","gs-collections","view-profile-author"
                                         ,"gs-favorites","keyword search","hashtag-sidebar","view-member-profile")] <- "community"
@@ -124,9 +142,9 @@ remove(unique_ips,events)
 # All anonymous (linked and not linked)
 geordi_all_anon <- geordi
 # Anonymous traces we weren't able to link
-geordi_anonymous_nolink <- geordi[which(is.na(geordi$userID_a)),] #117877 no link
+geordi_anonymous_nolink <- geordi[which(is.na(geordi$userID_a)),] 
 # Anonymous traces we were able to link
-geordi <- geordi[which(!is.na(geordi$userID_a)),] #2017383
+geordi <- geordi[which(!is.na(geordi$userID_a)),] 
 
 ####################################### 
 ####################################### 
@@ -226,6 +244,16 @@ geordi_summary <- ddply(geordi, c("userID_a"), summarize,
                         )
 geordi_summary$timepre <- geordi_summary$first_classification - geordi_summary$first_activitiy
 # number will be diferent from 8606 above because some users don't actually classify. They create accounts and explore the system. 
+
+
+# export and generate sessions
+setwd("~/Dropbox/INSPIRE/Papers & Presentations/Anonymous Work (Journal)/Data")
+write.csv(geordi,"geordi2.csv")
+# generate new sessions and re-import data
+geordi2 <- read_csv("~/Dropbox/INSPIRE/Papers & Presentations/Anonymous Work (Journal)/Data/geordiIP_linksession.csv")
+
+colnames(geordi2)[15] <- "Sequence"
+geordi2[c(1,2,11,12,13)] <- NULL
 ```
 
 ```{r}
@@ -408,11 +436,6 @@ q1
 
 #### Analysis: How much time being anonymous 
 ```{r, include=FALSE, warning=FALSE}
-geordi2 <- read_csv("~/Dropbox/INSPIRE/Papers & Presentations/Anonymous Work (Journal)/Data/Session/geordi-session-added.csv")
-colnames(geordi2)[22] <- "Sequence"
-geordi2[c(1,2,4,6,9,11:14,18:20)] <- NULL
-
-
 geordi2anon <- geordi2[which(geordi2$userID == "(anonymous)"),]
 geordi2anon$preevent <- as.factor(geordi2anon$preevent)
 
@@ -441,7 +464,6 @@ mean(geordi2anon.summary$timespent[which(geordi2anon.summary$preevent =="1")])
 sd(geordi2anon.summary$timespent[which(geordi2anon.summary$preevent =="1")])
 
 aa
-
 
 ```
 
