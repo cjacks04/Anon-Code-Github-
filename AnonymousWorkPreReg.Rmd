@@ -21,14 +21,14 @@ library(gridExtra)
 
 ```{r,  include=FALSE, warning=FALSE}
 # import datasets 
-geordi <- read_csv("~/Dropbox/INSPIRE/Data/System dumps/geordi-1-5-17.csv") # The raw geordi dataet
+geordi <- read_csv("~/Documents/RA/Code/geordi-1-5-17.csv") # The raw geordi dataet
 
 # remove unnecessary columns 
 geordi <- geordi[,-c(3,8,10:17,19)]
 
 # First logged in as indicated by first classification with a username
 joindate <- ddply(geordi,"userID",summarize,
-                  firstclass = min(time))
+                  firstclass = min(time[(which(new.category == "classify"))]))
 joindate <- joindate[which(joindate$userID!="(anonymous)"),]
 
 #
@@ -71,7 +71,7 @@ geordi$new.categories <- paste(geordi$type, geordi$relatedID, geordi$data, sep="
 
 # get unique events to determine activity
 # events <- unique(geordi[c("type","new.categories","breadcrumb")]) completed this step in previous analysis and manually labeled events
-events <- read_csv("~/Dropbox/INSPIRE/Papers & Presentations/Anonymous Work (Journal)/events.csv")
+events <- read_csv("~/Documents/RA/Code/events.csv")
 # remove highlevel events not needed for analysis
 events <- events[which(!is.na(events$new.category)),]
 # merge names of events
@@ -173,6 +173,7 @@ geordi_summary$timepre <- geordi_summary$first_classification - geordi_summary$f
 
 ```{r}
 # Report out results from geordi analysis here
+
 ```
 
 ### Analysis: Anonymous events that we were not to link to a user account
@@ -181,13 +182,33 @@ All anonymous events for which we were able to link to a user account. There is 
 
 ```{r, include=FALSE, warning=FALSE}
 # The anonymous activities use (geordi_anonymous_nolink) to do analysis on individual traces
+anonymous_activities_nolink <- count(geordi_anonymous_nolink$new.category[which(geordi_anonymous_nolink$userID=="(anonymous)")])
 
+colnames(anonymous_activities_nolink)[1] <- "event"
 
+anonymous_activities_nolink$event <- factor(anonymous_activities_nolink$event, levels=unique(as.character(anonymous_activities_nolink$event)) )
+anonymous_activities_nolink <- transform(anonymous_activities_nolink, event=reorder(event, -freq) )
+
+nolinkanon <- ggplot(subset(anonymous_activities_nolink, event != "classify"), aes(event, freq)) + 
+  geom_bar(stat = "identity", fill="dodgerblue4") + 
+  coord_flip() + 
+  labs(x="Event Category",y="Frequency", title="Anonymous Events (Not Linked)") + 
+  theme(
+    axis.text.x=element_text(size=9),
+    axis.text.y=element_text(size=9)
+  )
+
+#summarizing 
+geordi_summary1 <- ddply(geordi_anonymous_nolink, c("clientIP"), summarize, 
+                        activities = length(clientIP),
+                        classifications = length(clientIP[new.category == "classify"]),
+                        non_classifications = length(clientIP[new.category != "classify"]),
+                        percentage_classify = classifications/activities*100
+                        )
 ```
-
 ```{r}
 # Report out results from geordi_anonymous_nolink analysis here
-
+nolinkanon
 
 ```
 
