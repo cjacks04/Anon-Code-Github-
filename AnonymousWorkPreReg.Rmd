@@ -288,7 +288,9 @@ geordi_summary_nolink <- ddply(geordi_anonymous_nolink, c("clientIP","Session"),
                            "talk-bugs-view","talk-chat-view", "talk-help-view", "talk-science-view","talk-notes-view",
                            "talk-view","talk-newglitches-view","talk-collections-view"))),
                          socialize = length(which(new.category %in% c(
-                           "post-comment","edit-post","delete-post","private-message","update-comment"))),
+                           "post-Bug reports","edit-post","delete-post","private-message",
+                                       "update-comment","create-discussion"," post-Chat","post-Collections",
+                                       "post-Help","post-Notes","post-Science"))),
                          learn = length(which(new.category %in% c("tutorial", "mini-course"))),
                           community = length(which(new.category %in% c(
                            "view-profile-author","gs-about","gs-collections","view-profile-author","gs-favorites",
@@ -526,7 +528,9 @@ geordi2_summary <- ddply(geordi2, c("userID_a","Session"), summarize,
                            "talk-view","talk-newglitches-view","talk-collections-view")  
                             & userID != "(anonymous)")),
                          socialize = length(which(new.category %in% c(
-                           "post-comment","edit-post","delete-post","private-message","update-comment")
+                          "post-Bug reports","edit-post","delete-post","private-message",
+                                       "update-comment","create-discussion"," post-Chat","post-Collections",
+                                       "post-Help","post-Notes","post-Science")
                            & userID != "(anonymous)")),
                          learn = length(which(new.category %in% c(
                            "tutorial", "mini-course") & userID != "(anonymous)")),
@@ -546,8 +550,9 @@ geordi2_summary <- ddply(geordi2, c("userID_a","Session"), summarize,
                            "talk-bugs-view","talk-chat-view", "talk-help-view", "talk-science-view","talk-notes-view",
                            "talk-view","talk-newglitches-view","talk-collections-view")  
                             & userID == "(anonymous)")),
-                         anonsocialize = length(which(new.category %in% c(
-                           "post-comment","edit-post","delete-post","private-message","update-comment")
+                         anonsocialize = length(which(new.category %in% c("post-Bug reports","edit-post","delete-post","private-message",
+                                       "update-comment","create-discussion"," post-Chat","post-Collections",
+                                       "post-Help","post-Notes","post-Science")
                            & userID == "(anonymous)")),
                          anonlearn = length(which(new.category %in% c(
                            "tutorial", "mini-course") 
@@ -621,7 +626,9 @@ geordi2_summary_anon <- ddply(geordi2_lateranon, c("Session"), summarize,
                            "talk-bugs-view","talk-chat-view", "talk-help-view", "talk-science-view","talk-notes-view",
                            "talk-view","talk-newglitches-view","talk-collections-view"))),
                          socialize = length(which(new.category %in% c(
-                           "post-comment","edit-post","delete-post","private-message","update-comment"))),
+                           "post-Bug reports","edit-post","delete-post","private-message",
+                                       "update-comment","create-discussion"," post-Chat","post-Collections",
+                                       "post-Help","post-Notes","post-Science"))),
                          learn = length(which(new.category %in% c("tutorial", "mini-course"))),
                           community = length(which(new.category %in% c(
                            "view-profile-author","gs-about","gs-collections","view-profile-author","gs-favorites",
@@ -642,8 +649,9 @@ geordi2_summary_nonanon <- ddply(geordi2_laternonanon, c("Session"), summarize,
                          viewing = length(which(new.category %in% c(
                            "talk-bugs-view","talk-chat-view", "talk-help-view", "talk-science-view","talk-notes-view",
                            "talk-view","talk-newglitches-view","talk-collections-view"))),
-                         socialize = length(which(new.category %in% c(
-                           "post-comment","edit-post","delete-post","private-message","update-comment"))),
+                         socialize = length(which(new.category %in% c("post-Bug reports","edit-post","delete-post","private-message",
+                                       "update-comment","create-discussion"," post-Chat","post-Collections",
+                                       "post-Help","post-Notes","post-Science"))),
                          learn = length(which(new.category %in% c("tutorial", "mini-course"))),
                           community = length(which(new.category %in% c(
                            "view-profile-author","gs-about","gs-collections","view-profile-author","gs-favorites",
@@ -667,7 +675,9 @@ geordi2_user_summary_anon <- ddply(geordi2_lateranon, c("userID_a"), summarize,
                            "talk-bugs-view","talk-chat-view", "talk-help-view", "talk-science-view","talk-notes-view",
                            "talk-view","talk-newglitches-view","talk-collections-view"))),
                          socialize = length(which(new.category %in% c(
-                           "post-comment","edit-post","delete-post","private-message","update-comment"))),
+                           "post-Bug reports","edit-post","delete-post","private-message",
+                                       "update-comment","create-discussion"," post-Chat","post-Collections",
+                                       "post-Help","post-Notes","post-Science"))),
                          learn = length(which(new.category %in% c("tutorial", "mini-course"))),
                           community = length(which(new.category %in% c(
                            "view-profile-author","gs-about","gs-collections","view-profile-author","gs-favorites",
@@ -696,8 +706,9 @@ geordi2_user_summary_nonanon <- ddply(geordi2_laternonanon, c("userID_a"), summa
                          viewing = length(which(new.category %in% c(
                            "talk-bugs-view","talk-chat-view", "talk-help-view", "talk-science-view","talk-notes-view",
                            "talk-view","talk-newglitches-view","talk-collections-view"))),
-                         socialize = length(which(new.category %in% c(
-                           "post-comment","edit-post","delete-post","private-message","update-comment"))),
+                         socialize = length(which(new.category %in% c("post-Bug reports","edit-post","delete-post","private-message",
+                                       "update-comment","create-discussion"," post-Chat","post-Collections",
+                                       "post-Help","post-Notes","post-Science"))),
                          learn = length(which(new.category %in% c("tutorial", "mini-course"))),
                           community = length(which(new.category %in% c(
                            "view-profile-author","gs-about","gs-collections","view-profile-author","gs-favorites",
@@ -850,8 +861,9 @@ nextactivity$meta[nextactivity$new.category %in% c("examine-image","image metada
 nextactivity$meta[nextactivity$new.category %in% c("talk-bugs-view","talk-chat-view", "talk-help-view",
                                 "talk-science-view","talk-notes-view","talk-view","talk-newglitches-view",
                                 "talk-collections-view")] <- "viewing"
-nextactivity$meta[nextactivity$new.category %in% c("post-comment","edit-post","delete-post","private-message",
-                                       "update-comment","create-discussion")] <- "socialize"
+nextactivity$meta[nextactivity$new.category %in% c("post-Bug reports","edit-post","delete-post","private-message",
+                                       "update-comment","create-discussion"," post-Chat","post-Collections",
+                                       "post-Help","post-Notes","post-Science")] <- "socialize"
 nextactivity$meta[nextactivity$new.category %in% c("tutorial", "mini-course")] <- "learn"
 nextactivity$meta[nextactivity$new.category %in% c( 
                 "view-profile-author","gs-about","gs-collections","view-profile-author","gs-favorites","keyword 
