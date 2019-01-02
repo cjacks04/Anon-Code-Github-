@@ -30,7 +30,7 @@ geordi <- geordi[,-c(3,8,10:17,19)] # remove unnecessary columns
 
 # First logged in as indicated by first classification with a username
 joindate <- ddply(geordi,"userID",summarize,
-                  firstclass =min(time[userID != "(anonymous)"])) 
+                  firstactivity =min(time[userID != "(anonymous)"]))
 joindate <- joindate[which(joindate$userID!="(anonymous)"),]
 
 #
@@ -91,7 +91,7 @@ names(comments)[2] <- "time"
 
 comments <- comments[,c(3,2,4,1,5)]
 # remove post comment event  
-geordi <- geordi[which(geordi$new.category != "post-comment"),]
+geordi <- geordi[which(!geordi$new.category %in% c("post-comment")),]
 geordi <- rbind(geordi,comments)
 remove(comments)
 # remove comment category and replace with actual comment posts from system logs
@@ -125,7 +125,7 @@ geordi$meta[geordi$new.category %in% c( "view-profile-author","gs-about","gs-col
 geordi$meta[geordi$new.category %in% c("like-post", "unfavorite", "report-post","subscribe","click-favorite")] <- "impressions"
 geordi$meta[geordi$new.category %in% c("classify")] <- "classification"
 
-# remove events that weren't important
+# remove events that weren't important. This is that dataset to be used in the analysis
 geordi <- geordi[which(!is.na(geordi$new.category)),]
 remove(unique_ips,events)
 ```
@@ -157,13 +157,15 @@ geordi_visall <- ddply(subset(geordi_all_anon,userID =="(anonymous)"), c("meta",
                            activities = length(userID_a))
 
 # simple bar plot 
-m <- ggbarplot(subset(geordi_visall, !meta %in% c("classification","impressions","learn")), x = "new.category", y = "activities",
+m <- ggbarplot(subset(geordi_visall, !meta %in% c("classification")), x = "new.category", y = "activities",
           fill = "meta",               # change fill color by cyl
           color = "white",            # Set bar border colors to white
           palette = "jco",            # jco journal color palett. see ?ggpar
           sort.val = "asc",           # Sort the value in dscending order
           sort.by.groups = TRUE,      # Sort inside each group
-          x.text.angle = 90,
+          #x.text.angle = 90,
+          rotate = TRUE,
+          ggtheme = theme_minimal(),
           ylab = "Event Count",xlab = "Event" # Rotate vertically x axis texts
           )
 m <- m + font("xy.text", size = 9) 
@@ -210,41 +212,38 @@ geordi_vislinked <- ddply(subset(geordi,userID =="(anonymous)"), c("meta","new.c
                            users = length(unique(userID_a)),
                            activities = length(userID_a))
 
-p <- ggdotchart(subset(geordi_vislinked, !meta %in% c("classification","impressions","learn")), x = "new.category", y = "activities",
-           color = "meta",                                # Color by groups
-           palette = "jco", # Custom color palette
-           sorting = "descending",                       # Sort value in descending order
-           add = "segments",                             # Add segments from y = 0 to dots
-           rotate = FALSE,                                # Rotate vertically
+p <- ggbarplot(subset(geordi_vislinked, !meta %in% c("classification","impressions","learn")), x = "new.category", y = "activities",
+           fill = "meta",               # change fill color by cyl
+          color = "white",            # Set bar border colors to white
+          palette = "jco",            # jco journal color palett. see ?ggpar
+          sort.val = "asc",                              # Add segments from y = 0 to dots
+           rotate = TRUE,                                # Rotate vertically
            group = "meta",                                # Order by groups
-           dot.size = 6,                                 # Large dot size
+           #dot.size = 6,                                 # Large dot size
            label = "users",         # Add mpg values as dot labels
-           font.label = list(color = "white", size = 9, 
-                             vjust = 0.5),               # Adjust label parameters
-           ggtheme = theme_pubr(),                       # ggplot2 theme
+           font.label = list(color = "black", size = 2),               # Adjust label parameters
+          ggtheme = theme_minimal(),
            ylab = "Event Count",xlab = "Event"
            )
 p <- p + font("xy.text", size = 9) 
 
-## Indication events before a user's first loggedin classification
+## Indication events before a user's first registered activity 
 geordi <- merge(geordi,joindate, by.y=("userID"), by.x=("userID_a"), all.x = TRUE)
-geordi$preevent <- ifelse(geordi$time < geordi$firstclass,1,0) #1 if the record is before registering
+geordi$preevent <- ifelse(geordi$time < geordi$firstactivity,1,0) #1 if the record is before registering
 
 # Contribution summary of all events in geordi
 geordi_summary <- ddply(geordi, c("userID_a"), summarize, 
                         activities = length(userID_a),
                         anonymouscount = length(which(userID=="(anonymous)")), # all activities that were anon.
                         loggedincount = length(which(!userID=="(anonymous)")), # count activities that are not anon
-                        first_classification = min(firstclass),
-                        first_activitiy = min(time),
+                        first_anonactivity = min(time[userID=="(anonymous)"]),
+                        first_regactivitiy = min(time[userID!="(anonymous)"]),
                         pre_reg_anon_activities = length(which(userID=="(anonymous)" & preevent ==1)),
                         post_reg_anon_activities = length(which(userID=="(anonymous)" & preevent ==0)),
-                        classifications_future = length(userID_a[new.category=="classify" & preevent == 0]),
-                        nonclassification_pre = length(userID_a[new.category != "classify" & preevent == 1])
+                        classifications = length(userID_a[new.category=="classify"])
                         )
-geordi_summary$timepre <- geordi_summary$first_classification - geordi_summary$first_activitiy
+geordi_summary$timepre <- geordi_summary$first_regactivitiy - geordi_summary$first_anonactivity
 # number will be diferent from 8606 above because some users don't actually classify. They create accounts and explore the system. 
-
 
 # export and generate sessions
 setwd("~/Dropbox/INSPIRE/Papers & Presentations/Anonymous Work (Journal)/Data")
@@ -311,11 +310,11 @@ l <- ggdotchart(subset(geordi_visnonlinked, !meta %in% c("classification")), x =
            palette = "jco", # Custom color palette
            sorting = "descending",                       # Sort value in descending order
            add = "segments",                             # Add segments from y = 0 to dots
-           rotate = FALSE,                                # Rotate vertically
+           rotate = TRUE,                                # Rotate vertically
            group = "meta",                                # Order by groups
-           dot.size = 8,                                 # Large dot size
+           dot.size = 6,                                 # Large dot size
            label = "users",         # Add mpg values as dot labels
-           font.label = list(color = "white", size = 9, 
+           font.label = list(color = "white", size = 7, 
                              vjust = 0.5),               # Adjust label parameters
            ggtheme = theme_pubr(),                       # ggplot2 theme
            ylab = "Event Count",xlab = "Event"
@@ -452,10 +451,11 @@ geordi2anon.summary$timespent2 <- log(geordi2anon.summary$timespent)
 aa <- ggdensity(subset(geordi2anon.summary,geordi2anon.summary$preevent =="1" & geordi2anon.summary$timespent >= 1),
    x = "timespent2",
    add = "mean", rug = TRUE,
-    xlab = "Mins. to register (log)",
+  xlab = "Mins. to register (log)",
    color = "#E7B800", 
    fill = "#E7B800")
    #palette = c("#00AFBB", "#E7B800"))
+
 
 ```
 
@@ -465,7 +465,8 @@ aa <- ggdensity(subset(geordi2anon.summary,geordi2anon.summary$preevent =="1" & 
 mean(geordi2anon.summary$timespent[which(geordi2anon.summary$preevent =="1")])
 sd(geordi2anon.summary$timespent[which(geordi2anon.summary$preevent =="1")])
 
-aa
+aa + font("xlab", size = 14) +
+ font("ylab", size = 14)
 
 ```
 
@@ -482,7 +483,8 @@ bb <- ggdensity(subset(geordi2anon.summary,geordi2anon.summary$preevent =="0" & 
 
 * __Time to signin: 
 ```{r}
-bb
+bb + font("xlab", size = 14) +
+ font("ylab", size = 14)
 
 mean(geordi2anon.summary$timespent[which(geordi2anon.summary$preevent =="0")])
 sd(geordi2anon.summary$timespent[which(geordi2anon.summary$preevent =="0")])
@@ -688,7 +690,7 @@ geordi2_user_summary_anon <- ddply(geordi2_lateranon, c("userID_a"), summarize,
                           anontask = length(which(new.category %in% c(
                            "examine-image","image metadata","open-field-guide")))
                          )
-geordi2_user_summary_anon$Anon.Type <- "AC"
+geordi2_user_summary_anon$Anon.Type <- "Anonymous"
 geordi2_user_summary_anon$Task.Type <- ifelse(geordi2_user_summary_anon$userID_a %in% tasklist.a,"Task","No Task")
 geordi2_user_summary_anon$Task.Type2 <- paste(geordi2_user_summary_anon$Anon.Type, geordi2_user_summary_anon$Task.Type, sep = "-")
 
@@ -720,7 +722,7 @@ geordi2_user_summary_nonanon <- ddply(geordi2_laternonanon, c("userID_a"), summa
                            "examine-image","image metadata","open-field-guide")))
                          )
 
-geordi2_user_summary_nonanon$Anon.Type <- "NAC"
+geordi2_user_summary_nonanon$Anon.Type <- "Non-Anonymous"
 geordi2_user_summary_nonanon$Task.Type <- ifelse(geordi2_user_summary_nonanon$userID_a %in% tasklist.n,"Task","No Task")
 geordi2_user_summary_nonanon$Task.Type2 <- paste(geordi2_user_summary_nonanon$Anon.Type, geordi2_user_summary_nonanon$Task.Type,sep="-")
 
@@ -754,89 +756,108 @@ ggpar(l, legend.title = "Contributor Type")
 #### Analysis: Do anonymous contributors differ from non-anon contributors in future participation 
 ```{r }
 # boxplot of future classifications
-geordi2_user_summary_future$classifications.log <- log(geordi2_user_summary_future$classifications)
-geordi2_user_summary_future$classifications.log[geordi2_user_summary_future$classifications.log < 1] <- 0
-
-my_comparisons <- list( c("Non-Anon Contributor", "Anon Contributor"))
 z <- ggboxplot(geordi2_user_summary_future, x = "Anon.Type", y = "classifications",
             desc_stat = "mean", color = "Anon.Type", 
             ylab="Future Classifications(log)",xlab ="First Session Type",
             #add="dotplot", 
             palette = "jco",
             add.params = list(binwidth = 0.1, dotsize = 0.5)
-            )+ 
-  stat_compare_means(comparisons = my_comparisons)+ # Add pairwise comparisons p-value
-  stat_compare_means(label.y = 20000) 
+            )
 
-compare_means(classifications ~ Anon.Type,  data = geordi2_user_summary_future)
 wilcox.test(classifications ~ Anon.Type,  data = geordi2_user_summary_future)
+#effect size
 ggpar(z,legend = "none")
+```
 
 
+```{r }
 # Compare task
-geordi2_user_summary_future$task.log <- log(geordi2_user_summary_future$task)
-geordi2_user_summary_future$task.log[geordi2_user_summary_future$task.log < 1] <- 0
-
-my_comparisons.task <- list(c("AC-Task","NAC-Task"),c("AC-No Task","NAC-No Task"))
 a <- ggboxplot(geordi2_user_summary_future, x = "Task.Type2", y = "task",
             desc_stat = "mean_sd", color = "Anon.Type",
             #add="dotplot", 
             add = "jitter",
-            palette = "jco", ylab = "Future Task Interactions",
-            xlab = "Task Interactions in Session 1"
+            palette = "jco", ylab = "Task Interactions",
+            xlab = "First Session",
+            x.text.angle = 90,
+            rotate = TRUE,
+            ggtheme = theme_minimal()
            # add.params = list(binwidth = 0.1, dotsize = 0.5)
            )
-
-compare_means(task ~ Task.Type2,  data = geordi2_user_summary_future)
-wilcox.test(task~Task.Type2, data = geordi2_user_summary_future,subset = Task.Type2 %in% c("AC-Task","NAC-Task"))  # 
-
-a + stat_compare_means(comparisons = my_comparisons.task)+
-  stat_compare_means(label.y = 10) + font("xy.text", size = 9) +
-  rotate_x_text(45)
-
-compare_means(classifications ~ Task.Type2,  data = geordi2_user_summary_future)
+ggpar(a,legend = "none")
+wilcox.test(task~Anon.Type, data = geordi2_user_summary_future, 
+            subset = Task.Type %in% c("Task")) 
+wilcox.test(task~Anon.Type, data = geordi2_user_summary_future, 
+            subset = Task.Type %in% c("No Task")) 
 
 
 # Compare viewing
-geordi2_user_summary_future$view.log <- log(geordi2_user_summary_future$viewing)
-geordi2_user_summary_future$view.log[geordi2_user_summary_future$view.log < 1] <- 0
-
-my_comparisons.viewing <- list(c("AC-No View","NAC-No View"),c("AC-View","NAC-View"))
 p <- ggboxplot(geordi2_user_summary_future, x = "Viewing.Type2", y = "viewing",
             desc_stat = "mean_sd", color = "Anon.Type",
             #add="dotplot", 
-            palette = "jco", ylab = "Future Viewing Interactions",
-            xlab = "Viewing Interactions in Session 1",
-                        add = "jitter"
+            palette = "jco", ylab = "View Interactions",
+            xlab = "First Session",
+            add = "jitter",
+            x.text.angle = 90,
+            rotate = TRUE,
+            ggtheme = theme_minimal()
             #add.params = list(binwidth = 0.1, dotsize = 0.9)
             )
-compare_means(viewing ~ Viewing.Type2,  data = geordi2_user_summary_future)
-compare_means(classifications ~ Viewing.Type2,  data = geordi2_user_summary_future)
 
-p + stat_compare_means(comparisons = my_comparisons.viewing)+
-  stat_compare_means(label.y = 9000) + font("xy.text", size = 9) +
-  rotate_x_text(45)
+ggpar(p,legend = "none")
+wilcox.test(viewing~Anon.Type, data = geordi2_user_summary_future, 
+            subset = Viewing.Type %in% c("View")) 
+wilcox.test(viewing~Anon.Type, data = geordi2_user_summary_future, 
+            subset = Viewing.Type %in% c("No View")) 
            
 # Compare community
-geordi2_user_summary_future$community.log <- log(geordi2_user_summary_future$community)
-geordi2_user_summary_future$community.log[geordi2_user_summary_future$community.log < 1] <- 0
-
-my_comparisons.community <- list(c("AC-No Comm.","NAC-No Comm."),c("AC-Comm.","NAC-Comm."))
 m <- ggboxplot(geordi2_user_summary_future, x = "Community.Type2", y = "community",
              desc_stat = "mean_sd", color = "Anon.Type",
             #add="dotplot", 
             add = "jitter",
-            palette = "jco", ylab = "Future Community Interactions",
-            xlab = "Community Interactions in Session 1"
+            palette = "jco", ylab = "Community Interactions",
+            xlab = "First Session",
+            x.text.angle = 90,
+            rotate = TRUE,
+            ggtheme = theme_minimal()
             #add.params = list(binwidth = 0.1, dotsize = 0.9)
             )
+ggpar(m,legend = "none")
+wilcox.test(community~Anon.Type, data = geordi2_user_summary_future, 
+            subset = Community.Type %in% c("Comm.")) 
+wilcox.test(community~Anon.Type, data = geordi2_user_summary_future, 
+            subset = Community.Type %in% c("No Comm.")) 
+   
 
-compare_means(community ~ Community.Type2,  data = geordi2_user_summary_future)
-compare_means(classifications ~ Community.Type2,  data = geordi2_user_summary_future)
-
-m + stat_compare_means(comparisons = my_comparisons.community)+
-  stat_compare_means(label.y = 1500) + font("xy.text", size = 9) +
-  rotate_x_text(45)
+# Compare impressions
+l <- ggboxplot(geordi2_user_summary_future, x = "Anon.Type", y = "impressions",
+             desc_stat = "mean_sd", color = "Anon.Type",
+            #add="dotplot", 
+            add = "jitter",
+            palette = "jco", ylab = "Impression Interactions",
+            xlab = "First Session",
+            x.text.angle = 90,
+            rotate = TRUE,
+            ggtheme = theme_minimal()
+            #add.params = list(binwidth = 0.1, dotsize = 0.9)
+            )
+ggpar(l,legend = "none")
+wilcox.test(impressions~Anon.Type, data = geordi2_user_summary_future) 
+  
+# Compare learning
+o <- ggboxplot(geordi2_user_summary_future, x = "Anon.Type", y = "learn",
+             desc_stat = "mean_sd", color = "Anon.Type",
+            #add="dotplot", 
+            add = "jitter",
+            palette = "jco", ylab = "Learning Interactions",
+            xlab = "First Session",
+            x.text.angle = 45,
+            rotate = TRUE,
+            ggtheme = theme_minimal()
+            #add.params = list(binwidth = 0.1, dotsize = 0.9)
+            )
+ggpar(o,legend = "none")
+t.test(learn~Anon.Type, data = geordi2_user_summary_future) 
+  
 
 ```
 
