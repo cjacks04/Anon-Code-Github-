@@ -247,7 +247,7 @@ geordi_summary$timepre <- geordi_summary$first_regactivitiy - geordi_summary$fir
 
 # export and generate sessions
 setwd("~/Dropbox/INSPIRE/Papers & Presentations/Anonymous Work (Journal)/Data")
-write.csv(geordi,"geordi2.csv")
+#write.csv(geordi,"geordi2.csv")
 # generate new sessions and re-import data
 geordi2 <- read_csv("~/Dropbox/INSPIRE/Papers & Presentations/Anonymous Work (Journal)/Data/geordiIP_linksession.csv")
 
@@ -321,10 +321,27 @@ l <- ggdotchart(subset(geordi_visnonlinked, !meta %in% c("classification")), x =
            )
 l <- l + font("xy.text", size = 9) 
 
+
+geordi_summary_nolink$hms <- strftime(geordi_summary_nolink$first_activity, format = "%H")
+
+timecount <- ddply(geordi_summary_nolink, c("hms"), summarize,
+                   count = length(clientIP))
+
+# plot dates
+ses_start <- ggbarplot(timecount, x = "hms", y = "count", 
+          fill = "#00AFBB", 
+          palette = "jco",
+          font.label = list(color = "white", size = 7, 
+                             vjust = 0.5),               # Adjust label parameters
+           ylab = "No. Sessions",xlab = "Session Start Time",
+          ggtheme = theme_pubr()) 
+
 ```
 
 ```{r}
 # Report out results from geordi_anonymous_nolink analysis here
+ses_start
+
 ggpar(l, legend.title = "Meta-interaction")
 
 ```
@@ -756,7 +773,7 @@ ggpar(l, legend.title = "Contributor Type")
 #### Analysis: Do anonymous contributors differ from non-anon contributors in future participation 
 ```{r }
 # boxplot of future classifications
-z <- ggboxplot(geordi2_user_summary_future, x = "Anon.Type", y = "classifications",
+z <- ggviolin(geordi2_user_summary_future, x = "Anon.Type", y = "classifications",
             desc_stat = "mean", color = "Anon.Type", 
             ylab="Future Classifications(log)",xlab ="First Session Type",
             #add="dotplot", 
@@ -828,6 +845,20 @@ wilcox.test(community~Anon.Type, data = geordi2_user_summary_future,
             subset = Community.Type %in% c("No Comm.")) 
    
 
+ggbarplot(geordi2_user_summary_future, x = "Community.Type2", y = "community", fill ="Anon.Type", palette = "jco", add = "mean", #facet.by = "Community.Type2", 
+          legend.title = "Diagnosis", title = "Average Response Time per Cue",
+          xlab = "Diagnosis", ylab = "Average # Community Interactions") + 
+   stat_compare_means(comparisons = my_comparisons, aes(label = ..p.signif..), 
+                        label.x = 1.5, label.y = 20)+
+
+
+my_comparisons <- list( c("Non-Anonymous-No Comm.","Anonymous-No Comm."),c("Anonymous-Comm.","Non-Anonymous-Comm."))
+ggbarplot(geordi2_user_summary_future, x = "Community.Type2", y = "community",add = "mean_se",
+          color = "Anon.Type", palette = "jco",  xlab = "First Session Type", ylab = "Average # Community Interactions",
+          position = position_dodge(0.8))+
+stat_compare_means(aes(group = Community.Type2), label = "p.signif", label.y = 20) + theme_linedraw()
+
+
 # Compare impressions
 l <- ggboxplot(geordi2_user_summary_future, x = "Anon.Type", y = "impressions",
              desc_stat = "mean_sd", color = "Anon.Type",
@@ -856,7 +887,7 @@ o <- ggboxplot(geordi2_user_summary_future, x = "Anon.Type", y = "learn",
             #add.params = list(binwidth = 0.1, dotsize = 0.9)
             )
 ggpar(o,legend = "none")
-t.test(learn~Anon.Type, data = geordi2_user_summary_future) 
+wilcox.test(learn~Anon.Type, data = geordi2_user_summary_future) 
   
 
 ```
